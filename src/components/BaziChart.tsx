@@ -1,5 +1,5 @@
 import React from 'react';
-import { BaziChartType, PillarElement } from '../utils/baziCalculator';
+import { BaziChartType, PillarElement, HiddenStem, GodType } from '../utils/baziCalculator';
 
 interface BaziChartProps {
   baziChart: BaziChartType;
@@ -111,39 +111,83 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
     return '未知';
   };
 
+  // 展示藏干信息
+  const renderHiddenStems = (hiddenStems: HiddenStem[]) => {
+    if (!hiddenStems || hiddenStems.length === 0) {
+      return <span className="text-gray-400">无</span>;
+    }
+    
+    return (
+      <div className="flex flex-col space-y-1">
+        {hiddenStems.map((hs, idx) => (
+          <div key={idx} className={`text-xs ${hs.primary ? 'font-bold' : ''}`}>
+            {hs.stemChinese} ({hs.stem})
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // 展示神煞信息
+  const renderGods = (gods: GodType[]) => {
+    if (!gods || gods.length === 0) {
+      return <span className="text-gray-400">无</span>;
+    }
+    
+    return (
+      <div className="flex flex-wrap gap-1">
+        {gods.map((god, idx) => (
+          <span key={idx} className="text-xs bg-amber-100 dark:bg-amber-800 rounded px-1 py-0.5">
+            {god.nameChinese}
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   return (
-    <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
-      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">BaZi Chart</h2>
+    <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-4xl mx-auto">
+      <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">八字排盘</h2>
       
       <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="p-4 bg-amber-50 dark:bg-gray-700 rounded-md">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Birth Information</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">出生信息</h3>
           <div className="space-y-1 text-sm">
-            <p><span className="font-medium">Date:</span> {userInfo.birthYear}-{userInfo.birthMonth}-{userInfo.birthDay}</p>
-            <p><span className="font-medium">Time:</span> {userInfo.birthHour.toString().padStart(2, '0')}:{userInfo.birthMinute.toString().padStart(2, '0')}</p>
-            <p><span className="font-medium">Gender:</span> {userInfo.gender === 'male' ? 'Male' : 'Female'}</p>
-            <p><span className="font-medium">Location:</span> {userInfo.location}</p>
+            <p><span className="font-medium">日期:</span> {userInfo.birthYear}年{userInfo.birthMonth}月{userInfo.birthDay}日</p>
+            <p><span className="font-medium">时间:</span> {userInfo.birthHour.toString().padStart(2, '0')}:{userInfo.birthMinute.toString().padStart(2, '0')}</p>
+            <p><span className="font-medium">性别:</span> {userInfo.gender === 'male' ? '男' : '女'}</p>
+            <p><span className="font-medium">出生地:</span> {userInfo.location}</p>
             {userInfo.lunarDate && (
-              <p><span className="font-medium">Lunar Date:</span> {userInfo.lunarDate.year}-{userInfo.lunarDate.month}-{userInfo.lunarDate.day}</p>
+              <p><span className="font-medium">农历日期:</span> {userInfo.lunarDate.year}年{userInfo.lunarDate.month}月{userInfo.lunarDate.day}日</p>
             )}
             {userInfo.solarTime && (
-              <p><span className="font-medium">Solar Time:</span> {userInfo.solarTime.hour.toString().padStart(2, '0')}:{userInfo.solarTime.minute.toString().padStart(2, '0')}</p>
+              <p><span className="font-medium">真太阳时:</span> {userInfo.solarTime.hour.toString().padStart(2, '0')}:{userInfo.solarTime.minute.toString().padStart(2, '0')}</p>
             )}
           </div>
         </div>
         
         <div className="p-4 bg-amber-50 dark:bg-gray-700 rounded-md">
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Chart Summary</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">八字总论</h3>
           <div className="space-y-1 text-sm">
             <p>
-              <span className="font-medium">Day Master:</span> 
+              <span className="font-medium">日主:</span> 
               <span className={getElementColor(baziChart.dayMaster)}>
-                {baziChart.dayMaster} ({getChineseElement(baziChart.dayMaster)})
+                {baziChart.dayMasterChinese} ({baziChart.dayMaster})
               </span>
             </p>
-            <p><span className="font-medium">Lucky Element:</span> {baziChart.luckyElement} ({baziChart.luckyElementChinese})</p>
-            <p><span className="font-medium">Unlucky Element:</span> {baziChart.unluckyElement} ({baziChart.unluckyElementChinese})</p>
-            <p><span className="font-medium">Void Branches:</span> {baziChart.voids} ({baziChart.voidsChinese})</p>
+            <p>
+              <span className="font-medium">喜用神:</span> 
+              <span className={getElementColor(baziChart.luckyElement)}>
+                {baziChart.luckyElementChinese} ({baziChart.luckyElement})
+              </span>
+            </p>
+            <p>
+              <span className="font-medium">忌神:</span> 
+              <span className={getElementColor(baziChart.unluckyElement)}>
+                {baziChart.unluckyElementChinese} ({baziChart.unluckyElement})
+              </span>
+            </p>
+            <p><span className="font-medium">空亡:</span> {baziChart.voidsChinese || '无'}</p>
           </div>
         </div>
       </div>
@@ -151,26 +195,26 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
       <div className="mb-8 overflow-hidden rounded-lg border border-amber-200 dark:border-amber-800">
         <div className="grid grid-cols-5 text-center bg-amber-50 dark:bg-gray-700 border-b border-amber-200 dark:border-amber-800">
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pillar</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">柱位</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Year</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">年柱</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Month</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">月柱</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">日柱</span>
           </div>
           <div className="p-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hour</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">时柱</span>
           </div>
         </div>
         
-        {/* Relationship Row */}
+        {/* 干神 - 神煞关系 */}
         <div className="grid grid-cols-5 text-center border-b border-amber-200 dark:border-amber-800">
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Relation</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">干神</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
             <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -194,10 +238,10 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
           </div>
         </div>
         
-        {/* Heavenly Stems Row */}
+        {/* 天干 */}
         <div className="grid grid-cols-5 text-center border-b border-amber-200 dark:border-amber-800">
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Heavenly Stem</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">天干</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
             <span className={`text-2xl font-bold ${getElementColor(baziChart.yearPillar.element)}`}>
@@ -233,10 +277,10 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
           </div>
         </div>
         
-        {/* Earthly Branches Row */}
+        {/* 地支 */}
         <div className="grid grid-cols-5 text-center border-b border-amber-200 dark:border-amber-800">
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Earthly Branch</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">地支</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
             <span className="text-2xl font-bold text-amber-600 dark:text-amber-400">
@@ -272,84 +316,106 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
           </div>
         </div>
         
-        {/* Hidden Stems Row */}
-        <div className="grid grid-cols-5 text-center">
+        {/* 藏干 */}
+        <div className="grid grid-cols-5 text-center border-b border-amber-200 dark:border-amber-800">
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hidden Stems</span>
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">藏干</span>
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {baziChart.yearHiddenStems.map((hs, i) => (
-                <div key={i} className={hs.primary ? 'font-bold' : ''}>
-                  {hs.stemChinese || hs.stem}
-                </div>
-              ))}
-            </div>
+            {renderHiddenStems(baziChart.yearHiddenStems)}
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {baziChart.monthHiddenStems.map((hs, i) => (
-                <div key={i} className={hs.primary ? 'font-bold' : ''}>
-                  {hs.stemChinese || hs.stem}
-                </div>
-              ))}
-            </div>
+            {renderHiddenStems(baziChart.monthHiddenStems)}
           </div>
           <div className="p-2 border-r border-amber-200 dark:border-amber-800">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {baziChart.dayHiddenStems.map((hs, i) => (
-                <div key={i} className={hs.primary ? 'font-bold' : ''}>
-                  {hs.stemChinese || hs.stem}
-                </div>
-              ))}
-            </div>
+            {renderHiddenStems(baziChart.dayHiddenStems)}
           </div>
           <div className="p-2">
-            <div className="text-xs text-gray-600 dark:text-gray-400">
-              {baziChart.hourHiddenStems.map((hs, i) => (
-                <div key={i} className={hs.primary ? 'font-bold' : ''}>
-                  {hs.stemChinese || hs.stem}
-                </div>
-              ))}
-            </div>
+            {renderHiddenStems(baziChart.hourHiddenStems)}
+          </div>
+        </div>
+        
+        {/* 神煞 */}
+        <div className="grid grid-cols-5 text-center border-b border-amber-200 dark:border-amber-800">
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">神煞</span>
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            {renderGods(baziChart.yearGods)}
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            {renderGods(baziChart.monthGods)}
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            {renderGods(baziChart.dayGods)}
+          </div>
+          <div className="p-2">
+            {renderGods(baziChart.hourGods)}
+          </div>
+        </div>
+        
+        {/* 纳音 */}
+        <div className="grid grid-cols-5 text-center">
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">纳音</span>
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {baziChart.yearNayin || "未知"}
+            </span>
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {baziChart.monthNayin || "未知"}
+            </span>
+          </div>
+          <div className="p-2 border-r border-amber-200 dark:border-amber-800">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {baziChart.dayNayin || "未知"}
+            </span>
+          </div>
+          <div className="p-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              {baziChart.hourNayin || "未知"}
+            </span>
           </div>
         </div>
       </div>
       
       <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Five Elements Distribution</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">五行分布</h3>
           <div className="space-y-2">
             <div className="flex items-center">
-              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">Wood (木)</div>
+              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">木 (Wood)</div>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                 <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(baziChart.fiveElements.wood / 12) * 100}%` }}></div>
               </div>
               <div className="w-8 text-sm text-gray-700 dark:text-gray-300 text-right">{baziChart.fiveElements.wood}</div>
             </div>
             <div className="flex items-center">
-              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">Fire (火)</div>
+              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">火 (Fire)</div>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                 <div className="bg-red-500 h-2.5 rounded-full" style={{ width: `${(baziChart.fiveElements.fire / 12) * 100}%` }}></div>
               </div>
               <div className="w-8 text-sm text-gray-700 dark:text-gray-300 text-right">{baziChart.fiveElements.fire}</div>
             </div>
             <div className="flex items-center">
-              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">Earth (土)</div>
+              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">土 (Earth)</div>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                 <div className="bg-yellow-500 h-2.5 rounded-full" style={{ width: `${(baziChart.fiveElements.earth / 12) * 100}%` }}></div>
               </div>
               <div className="w-8 text-sm text-gray-700 dark:text-gray-300 text-right">{baziChart.fiveElements.earth}</div>
             </div>
             <div className="flex items-center">
-              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">Metal (金)</div>
+              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">金 (Metal)</div>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                 <div className="bg-gray-500 h-2.5 rounded-full" style={{ width: `${(baziChart.fiveElements.metal / 12) * 100}%` }}></div>
               </div>
               <div className="w-8 text-sm text-gray-700 dark:text-gray-300 text-right">{baziChart.fiveElements.metal}</div>
             </div>
             <div className="flex items-center">
-              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">Water (水)</div>
+              <div className="w-20 text-sm font-medium text-gray-700 dark:text-gray-300">水 (Water)</div>
               <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                 <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${(baziChart.fiveElements.water / 12) * 100}%` }}></div>
               </div>
@@ -359,23 +425,23 @@ export default function BaziChart({ baziChart, userInfo }: BaziChartProps) {
         </div>
         
         <div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Nayin Five Elements</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">六十甲子纳音五行</h3>
           <div className="space-y-2">
             <div className="flex justify-between p-2 border-b border-amber-200 dark:border-amber-700">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Year</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.yearNayin}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">年柱</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.yearNayin || "未知"}</span>
             </div>
             <div className="flex justify-between p-2 border-b border-amber-200 dark:border-amber-700">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Month</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.monthNayin}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">月柱</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.monthNayin || "未知"}</span>
             </div>
             <div className="flex justify-between p-2 border-b border-amber-200 dark:border-amber-700">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Day</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.dayNayin}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">日柱</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.dayNayin || "未知"}</span>
             </div>
             <div className="flex justify-between p-2">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Hour</span>
-              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.hourNayin}</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">时柱</span>
+              <span className="text-sm text-gray-600 dark:text-gray-400">{baziChart.hourNayin || "未知"}</span>
             </div>
           </div>
         </div>
