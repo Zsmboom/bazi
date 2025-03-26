@@ -2,6 +2,9 @@
   "name": "bazi",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=16.14.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",

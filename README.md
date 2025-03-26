@@ -1,4 +1,21 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BaZi Calculator
+
+A modern web application for calculating and analyzing BaZi (Chinese Four Pillars of Destiny) charts with a beautiful Chinese Feng Shui and ink wash painting inspired design.
+
+## Features
+
+- **BaZi Basics**: Comprehensive explanation of BaZi theory, Five Elements, and Chinese metaphysics
+- **Interactive Calculator**: Input your birth details to generate your personal BaZi chart
+- **Destiny Analysis**: Detailed interpretation of your BaZi chart and life path
+- **Chinese Aesthetics**: Beautiful design inspired by traditional Chinese ink wash painting and Feng Shui elements
+- **Responsive Design**: Fully responsive for both mobile and desktop use
+
+## Technology Stack
+
+- **Framework**: Next.js 15 with App Router
+- **Styling**: Tailwind CSS v4 with custom ink wash effects
+- **Language**: TypeScript
+- **Deployment**: Vercel
 
 ## Getting Started
 
@@ -8,29 +25,26 @@ First, run the development server:
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `/src/app/page.tsx` - Homepage
+- `/src/app/basics/page.tsx` - BaZi theory and fundamentals
+- `/src/app/calculator/page.tsx` - Interactive BaZi calculator
+- `/src/app/destiny-analysis/page.tsx` - Destiny analysis explanation
+- `/src/components/` - Reusable components like Navbar and Footer
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+This project is optimized for deployment on Vercel:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Connect your GitHub repository to Vercel
+2. Vercel will automatically detect Next.js and apply the optimal build settings
+3. Deploy with a single click
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## License
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+All rights reserved.

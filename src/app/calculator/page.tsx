@@ -3,6 +3,20 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Define proper BaZi chart types
+interface PillarElement {
+  stem: string;
+  branch: string;
+  element: string;
+}
+
+interface BaziChartType {
+  yearPillar: PillarElement;
+  monthPillar: PillarElement;
+  dayPillar: PillarElement;
+  hourPillar: PillarElement;
+}
+
 // Mock data for BaZi heavenly stems and earthly branches
 const heavenlyStems = ['Jia', 'Yi', 'Bing', 'Ding', 'Wu', 'Ji', 'Geng', 'Xin', 'Ren', 'Gui'];
 const earthlyBranches = ['Zi', 'Chou', 'Yin', 'Mao', 'Chen', 'Si', 'Wu', 'Wei', 'Shen', 'You', 'Xu', 'Hai'];
@@ -23,7 +37,7 @@ export default function Calculator() {
   const [birthDay, setBirthDay] = useState(1);
   const [birthHour, setBirthHour] = useState(12);
   const [showResults, setShowResults] = useState(false);
-  const [baziChart, setBaziChart] = useState<any>(null);
+  const [baziChart, setBaziChart] = useState<BaziChartType | null>(null);
 
   const generateBaziChart = () => {
     // In a real application, this would call an API or use a library to calculate the actual BaZi chart
@@ -42,11 +56,27 @@ export default function Calculator() {
     const hourStem = heavenlyStems[Math.floor(Math.random() * heavenlyStems.length)];
     const hourBranch = earthlyBranches[Math.floor(Math.random() * earthlyBranches.length)];
     
-    const mockChart = {
-      yearPillar: { stem: yearStem, branch: yearBranch, element: elements[Math.floor(Math.random() * elements.length)] },
-      monthPillar: { stem: monthStem, branch: monthBranch, element: elements[Math.floor(Math.random() * elements.length)] },
-      dayPillar: { stem: dayStem, branch: dayBranch, element: elements[Math.floor(Math.random() * elements.length)] },
-      hourPillar: { stem: hourStem, branch: hourBranch, element: elements[Math.floor(Math.random() * elements.length)] },
+    const mockChart: BaziChartType = {
+      yearPillar: { 
+        stem: yearStem, 
+        branch: yearBranch, 
+        element: elements[Math.floor(Math.random() * elements.length)] 
+      },
+      monthPillar: { 
+        stem: monthStem, 
+        branch: monthBranch, 
+        element: elements[Math.floor(Math.random() * elements.length)] 
+      },
+      dayPillar: { 
+        stem: dayStem, 
+        branch: dayBranch, 
+        element: elements[Math.floor(Math.random() * elements.length)] 
+      },
+      hourPillar: { 
+        stem: hourStem, 
+        branch: hourBranch, 
+        element: elements[Math.floor(Math.random() * elements.length)] 
+      }
     };
     
     setBaziChart(mockChart);
