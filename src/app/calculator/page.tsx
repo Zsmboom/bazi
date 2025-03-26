@@ -148,9 +148,9 @@ export default function Calculator() {
         birthHour,
         birthMinute,
         gender as 'male' | 'female',
+        location,
         longitude,
-        latitude,
-        location
+        latitude
       );
       
       // 根据计算获得的真太阳时和农历日期

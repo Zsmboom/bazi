@@ -303,9 +303,12 @@ export async function convertToSolarTime(
   day: number,
   hour: number,
   minute: number,
-  longitude: number
+  longitude: number | string
 ): Promise<SolarTimeResult> {
   try {
+    // 确保经度为数字类型
+    const numLongitude = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+    
     // 创建Date对象
     const date = new Date(year, month - 1, day, hour, minute);
     
@@ -313,7 +316,7 @@ export async function convertToSolarTime(
     const defaultLatitude = 35.0;
     
     // 使用SunCalc获取太阳事件时间
-    const times = SunCalc.getTimes(date, defaultLatitude, longitude);
+    const times = SunCalc.getTimes(date, defaultLatitude, numLongitude);
     
     // 获取太阳正午时间
     const solarNoon = times.solarNoon;
@@ -458,10 +461,14 @@ async function getDeepSeekBazi(
   birthMinute: number,
   gender: 'male' | 'female',
   location: string,
-  longitude: number,
-  latitude: number
+  longitude: number | string,
+  latitude: number | string
 ): Promise<DeepSeekBaziData> {
   try {
+    // 确保经纬度为数字类型
+    const numLongitude = typeof longitude === 'string' ? parseFloat(longitude) : longitude;
+    const numLatitude = typeof latitude === 'string' ? parseFloat(latitude) : latitude;
+    
     const prompt = `
       请根据以下出生信息进行精确的八字排盘，并返回JSON格式：
       
@@ -469,8 +476,8 @@ async function getDeepSeekBazi(
       出生时间：${birthHour}时${birthMinute}分
       性别：${gender === 'male' ? '男' : '女'}
       出生地点：${location}
-      经度：${longitude}
-      纬度：${latitude}
+      经度：${numLongitude}
+      纬度：${numLatitude}
       
       请按照以下步骤进行精确计算：
       1. 先计算真太阳时（考虑地理经度调整）
@@ -799,8 +806,8 @@ export async function calculateBaziChart(
   birthMinute: number,
   gender: 'male' | 'female',
   location?: string,
-  longitude?: number,
-  latitude?: number
+  longitude?: number | string,
+  latitude?: number | string
 ): Promise<BaziChartType> {
   try {
     // 如果提供了位置信息，尝试使用DeepSeek API
@@ -814,8 +821,8 @@ export async function calculateBaziChart(
           birthMinute,
           gender,
           location,
-          longitude,
-          latitude
+          typeof longitude === 'string' ? parseFloat(longitude) : (longitude || 0),
+          typeof latitude === 'string' ? parseFloat(latitude) : latitude
         );
         
         // 构造返回结果
@@ -922,7 +929,7 @@ export async function calculateBaziChart(
       birthDay,
       birthHour,
       birthMinute,
-      longitude || 0
+      typeof longitude === 'string' ? parseFloat(longitude) : (longitude || 0)
     );
     
     // 计算农历日期
