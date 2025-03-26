@@ -135,11 +135,26 @@ export default function Calculator() {
         throw new Error('Please select a valid city');
       }
       
-      // 从选定的城市获取经度用于计算太阳时
+      // 从选定的城市获取经度、纬度和位置名称
       const longitude = selectedCity.longitude;
+      const latitude = selectedCity.latitude;
+      const location = `${selectedCity.city}, ${selectedCity.country}`;
       
-      // 步骤 1: 根据经度计算太阳时
-      const solarTimeResult = convertToSolarTime(
+      // 使用DeepSeek API计算八字
+      const chart = await calculateBaziChart(
+        birthYear,
+        birthMonth,
+        birthDay,
+        birthHour,
+        birthMinute,
+        gender as 'male' | 'female',
+        longitude,
+        latitude,
+        location
+      );
+      
+      // 根据计算获得的真太阳时和农历日期
+      const solarTimeResult = await convertToSolarTime(
         birthYear,
         birthMonth,
         birthDay,
@@ -162,19 +177,9 @@ export default function Calculator() {
         });
       }
       
-      // 步骤 2: 计算八字
-      const chart = calculateBaziChart(
-        birthYear,
-        birthMonth,
-        birthDay,
-        solarTimeResult.hour,
-        solarTimeResult.minute,
-        gender as 'male' | 'female'
-      );
-      
       setBaziChart(chart);
       
-      // 步骤 3: 发送数据到API获取详细分析
+      // 步骤 6: 发送数据到API获取详细分析
       const userInfo = {
         birthYear,
         birthMonth,
@@ -360,21 +365,21 @@ export default function Calculator() {
                 <div className="mb-4">
                   <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
                     <div className="w-full md:w-1/3">
-                      <select
+                  <select
                         value={selectedCountry}
                         onChange={(e) => {
                           setSelectedCountry(e.target.value);
                           setSelectedCity(null);
                           setCitySearchQuery('');
                         }}
-                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
+                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  >
                         {countries.map((country) => (
                           <option key={country.code} value={country.code}>
                             {country.chineseName} ({country.name})
-                          </option>
-                        ))}
-                      </select>
+                      </option>
+                    ))}
+                  </select>
                     </div>
                     
                     <div className="relative w-full md:w-2/3">
