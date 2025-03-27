@@ -10,13 +10,71 @@ export interface BaziChart {
   dayPillar: string;
   hourPillar: string;
   analysis: string;
+  ganShen: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  tianGan: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  diZhi: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  cangGan: {
+    year: string[];
+    month: string[];
+    day: string[];
+    hour: string[];
+  };
+  zhiShen: {
+    year: string[];
+    month: string[];
+    day: string[];
+    hour: string[];
+  };
+  naYin: {
+    year: string;
+    month: string;
+    day: string;
+    hour: string;
+  };
+  shenSha: {
+    year: string[];
+    month: string[];
+    day: string[];
+    hour: string[];
+  };
+  relations: {
+    tianGan: string;
+    diZhi: string;
+  };
+  lunarDate: {
+    year: number;
+    month: number;
+    day: number;
+    leap: boolean;
+  };
+  zodiac: string;
+  recommendedNames: {
+    name: string;
+    pinyin: string;
+    meaning: string;
+  }[];
 }
 
 // 分析类型
 export type AnalysisType = 'overall' | 'age25' | 'career' | 'marriage' | 'wealth' | 'health';
 
 // 用户数据类型
-interface UserData {
+export interface UserData {
   calendarType: string;
   birthYear: number;
   birthMonth: number;

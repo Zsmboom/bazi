@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     const model = process.env.DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3';
 
     if (!apiKey) {
-      return NextResponse.json({ error: 'API密钥未配置' }, { status: 500 });
+      return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
     let messages: any[] = [];
@@ -25,26 +25,101 @@ export async function POST(request: NextRequest) {
       
       // 验证必要的数据
       if (!birthYear || !birthMonth || !birthDay || !gender || !location) {
-        return NextResponse.json({ error: '数据不完整' }, { status: 400 });
+        return NextResponse.json({ error: 'Incomplete data' }, { status: 400 });
       }
 
       const calendarTypeText = calendarType === 'solar' ? '阳历/公历' : '阴历/农历';
       const genderText = gender === 'male' ? '男' : '女';
 
-      const prompt = `请根据以下出生信息进行八字排盘：
+      // 保持中文提示词，以确保结果的准确性
+      const prompt = `请根据以下出生信息进行详细的八字排盘，需要根据经纬度计算太阳时：
 - 历法：${calendarTypeText}
 - 出生日期：${birthYear}年${birthMonth}月${birthDay}日
 - 出生时间：${birthHour}时${birthMinute}分
 - 性别：${genderText}
 - 出生地点：${location}，经度：${longitude}度
+- 姓名：${data.userName || '（未提供）'}
 
-请提供完整的八字排盘结果，包括年柱、月柱、日柱、时柱的天干地支，并给出基础命理分析。
+请提供完整的八字排盘结果，包括以下内容：
+1. 四柱（年柱、月柱、日柱、时柱）的天干地支
+2. 干神（偏财、正官等）
+3. 天干（甲、乙、丙、丁等）
+4. 地支（子、丑、寅、卯等）
+5. 藏干（含藏干的五行属性，如：辛金、壬水等）
+6. 支神（偏财、食神等）
+7. 纳音（如：剑锋金、海中金等）
+8. 神煞（如：文昌贵人、将星等）
+9. 天干地支相生相克关系
+10. 阴历出生日期
+11. 属相（如：龙、蛇、马等）
+12. 基于八字命盘，推荐3个适合的中文名字（包含姓和名），每个名字必须提供汉字、拼音和结合八字命盘的含义解释
+
 结果请使用以下JSON格式返回（不要有其他内容，只返回JSON）：
 {
   "yearPillar": "年柱天干地支，如：甲子",
   "monthPillar": "月柱天干地支，如：乙丑",
   "dayPillar": "日柱天干地支，如：丙寅",
   "hourPillar": "时柱天干地支，如：丁卯",
+  "ganShen": {
+    "year": "年柱干神，如：偏财",
+    "month": "月柱干神，如：正官",
+    "day": "日柱干神，如：比肩",
+    "hour": "时柱干神，如：伤官"
+  },
+  "tianGan": {
+    "year": "年柱天干，如：甲",
+    "month": "月柱天干，如：乙",
+    "day": "日柱天干，如：丙",
+    "hour": "时柱天干，如：丁"
+  },
+  "diZhi": {
+    "year": "年柱地支，如：子",
+    "month": "月柱地支，如：丑",
+    "day": "日柱地支，如：寅",
+    "hour": "时柱地支，如：卯"
+  },
+  "cangGan": {
+    "year": ["年柱藏干1，如：癸水", "年柱藏干2（如果有）"],
+    "month": ["月柱藏干1，如：己土", "月柱藏干2（如果有）", "月柱藏干3（如果有）"],
+    "day": ["日柱藏干1，如：甲木", "日柱藏干2（如果有）", "日柱藏干3（如果有）"],
+    "hour": ["时柱藏干1，如：乙木", "时柱藏干2（如果有）"]
+  },
+  "zhiShen": {
+    "year": ["年柱支神1，如：食神", "年柱支神2（如果有）"],
+    "month": ["月柱支神1，如：偏财", "月柱支神2（如果有）", "月柱支神3（如果有）"],
+    "day": ["日柱支神1，如：正印", "日柱支神2（如果有）", "日柱支神3（如果有）"],
+    "hour": ["时柱支神1，如：偏印", "时柱支神2（如果有）"]
+  },
+  "naYin": {
+    "year": "年柱纳音，如：海中金",
+    "month": "月柱纳音，如：炉中火",
+    "day": "日柱纳音，如：大林木",
+    "hour": "时柱纳音，如：路旁土"
+  },
+  "shenSha": {
+    "year": ["年柱神煞1，如：文昌贵人", "年柱神煞2（如果有）"],
+    "month": ["月柱神煞1，如：将星", "月柱神煞2（如果有）"],
+    "day": ["日柱神煞1，如：华盖", "日柱神煞2（如果有）"],
+    "hour": ["时柱神煞1，如：太极贵人", "时柱神煞2（如果有）"]
+  },
+  "relations": {
+    "tianGan": "天干相生相克关系描述，例如：甲木生丙火，丙火克辛金等",
+    "diZhi": "地支相生相克关系描述，例如：子水生寅木，寅木克丑土等"
+  },
+  "lunarDate": {
+    "year": 农历年份数字，如：1990,
+    "month": 农历月份数字，如：6,
+    "day": 农历日期数字，如：15,
+    "leap": 是否闰月，布尔值，如：false
+  },
+  "zodiac": "属相，如：龙、蛇、马等",
+  "recommendedNames": [
+    {
+      "name": "推荐的中文名字1",
+      "pinyin": "名字的拼音1",
+      "meaning": "名字的含义解释1"
+    },
+  ],
   "analysis": "基础命理分析"
 }`;
       
@@ -58,35 +133,36 @@ export async function POST(request: NextRequest) {
       
       // 验证必要的数据
       if (!baziChart || !baziChart.yearPillar || !baziChart.monthPillar || !baziChart.dayPillar || !baziChart.hourPillar) {
-        return NextResponse.json({ error: '八字信息不完整' }, { status: 400 });
+        return NextResponse.json({ error: 'Incomplete BaZi information' }, { status: 400 });
       }
 
       if (!analysisType || !ALLOWED_TYPES.includes(analysisType)) {
-        return NextResponse.json({ error: '分析类型无效' }, { status: 400 });
+        return NextResponse.json({ error: 'Invalid analysis type' }, { status: 400 });
       }
 
       const bazi = `${baziChart.yearPillar} ${baziChart.monthPillar} ${baziChart.dayPillar} ${baziChart.hourPillar}`;
       
+      // 保持中文提示词，确保分析的准确性
       let prompt = `基于以下八字命盘：${bazi}\n\n`;
       
       switch (analysisType) {
         case 'overall':
-          prompt += '请提供详细的命理整体分析，包括性格特点、人生起伏、吉凶运势等，不少于1500字。';
+          prompt += '请提供详细的命理整体分析，包括性格特点、人生起伏、吉凶运势等。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1500字。';
           break;
         case 'age25':
-          prompt += '请专门针对25岁这一年的运势进行详细分析，包括事业、健康、感情等各方面运势，不少于1200字。';
+          prompt += '请专门针对25岁这一年的运势进行详细分析，包括事业、健康、感情等各方面运势。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1200字。';
           break;
         case 'career':
-          prompt += '请详细分析事业运势，包括适合的职业方向、事业发展机遇与挑战、升迁机会、创业建议等，不少于1200字。';
+          prompt += '请详细分析事业运势，包括适合的职业方向、事业发展机遇与挑战、升迁机会、创业建议等。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1200字。';
           break;
         case 'marriage':
-          prompt += '请详细分析婚姻与感情运势，包括感情特点、桃花运、婚姻质量、适合的伴侣类型等，不少于1200字。';
+          prompt += '请详细分析婚姻与感情运势，包括感情特点、桃花运、婚姻质量、适合的伴侣类型等。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1200字。';
           break;
         case 'wealth':
-          prompt += '请详细分析财运情况，包括财富来源、理财建议、投资机会、破财风险等，不少于1200字。';
+          prompt += '请详细分析财运情况，包括财富来源、理财建议、投资机会、破财风险等。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1200字。';
           break;
         case 'health':
-          prompt += '请详细分析健康状况，包括体质特点、易患疾病、养生建议等，不少于1200字。';
+          prompt += '请详细分析健康状况，包括体质特点、易患疾病、养生建议等。请用英文回答，但关键的命理学术语要加上中文，例如：Wood (木)，Fire (火)，Earth (土)，Metal (金)，Water (水)，Day Master (日主)等。答案不少于1200字。';
           break;
       }
       
@@ -96,7 +172,7 @@ export async function POST(request: NextRequest) {
       ];
     } 
     else {
-      return NextResponse.json({ error: '不支持的操作类型' }, { status: 400 });
+      return NextResponse.json({ error: 'Unsupported operation type' }, { status: 400 });
     }
 
     // 调用 DeepSeek API
@@ -117,7 +193,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorData = await response.json();
       return NextResponse.json(
-        { error: `DeepSeek API 错误：${response.status}`, details: errorData }, 
+        { error: `DeepSeek API Error: ${response.status}`, details: errorData }, 
         { status: response.status }
       );
     }
@@ -133,19 +209,19 @@ export async function POST(request: NextRequest) {
           const chart = JSON.parse(jsonMatch[0]);
           return NextResponse.json({ chart });
         } else {
-          return NextResponse.json({ error: '无法从响应中提取八字数据' }, { status: 500 });
+          return NextResponse.json({ error: 'Could not extract BaZi data from response' }, { status: 500 });
         }
       } catch (parseError) {
-        return NextResponse.json({ error: '解析八字数据失败', details: parseError }, { status: 500 });
+        return NextResponse.json({ error: 'Failed to parse BaZi data', details: parseError }, { status: 500 });
       }
     } else {
       // 分析操作直接返回内容
       return NextResponse.json({ analysis: result.choices[0].message.content });
     }
   } catch (error) {
-    console.error('处理请求错误:', error);
+    console.error('Error processing request:', error);
     return NextResponse.json(
-      { error: '服务器处理请求出错', details: error instanceof Error ? error.message : String(error) }, 
+      { error: 'Server error processing request', details: error instanceof Error ? error.message : String(error) }, 
       { status: 500 }
     );
   }
