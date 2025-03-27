@@ -1,17 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  BaziChartType, 
-  PillarElement, 
-  convertToSolarTime, 
-  calculateBaziChart, 
-  sendBaziToAPI 
-} from '../../utils/baziCalculator';
-import worldCitiesData, { WorldCity } from '../../utils/worldCitiesData';
-import countriesList, { Country } from '../../utils/countriesData';
-import BaziChart from '../../components/BaziChart';
+import { doBaziCalculation, doBaziAnalysis, BaziChart as BaziChartType, AnalysisType } from '@/utils/deepseekApi';
+
+// 分析报告类型
+interface AnalysisReport {
+  type: AnalysisType;
+  content: string;
+  timestamp: string;
+}
 
 // Year range for the date picker
 const currentYear = new Date().getFullYear();
@@ -20,6 +18,25 @@ const monthRange = Array.from({ length: 12 }, (_, i) => i + 1);
 const dayRange = Array.from({ length: 31 }, (_, i) => i + 1);
 const hourRange = Array.from({ length: 24 }, (_, i) => i);
 const minuteRange = Array.from({ length: 60 }, (_, i) => i);
+
+// Popular locations with their longitudes
+const popularLocations = [
+  { name: 'New York', longitude: -74.0060 },
+  { name: 'Los Angeles', longitude: -118.2437 },
+  { name: 'London', longitude: -0.1278 },
+  { name: 'Paris', longitude: 2.3522 },
+  { name: 'Tokyo', longitude: 139.6917 },
+  { name: 'Sydney', longitude: 151.2093 },
+  { name: 'Beijing', longitude: 116.4074 },
+  { name: 'Shanghai', longitude: 121.4737 },
+  { name: 'Hong Kong', longitude: 114.1694 },
+  { name: 'Singapore', longitude: 103.8198 },
+  { name: 'Mumbai', longitude: 72.8777 },
+  { name: 'Dubai', longitude: 55.2708 },
+  { name: 'Cairo', longitude: 31.2357 },
+  { name: 'Moscow', longitude: 37.6173 },
+  { name: 'Berlin', longitude: 13.4050 },
+];
 
 export default function Calculator() {
   const router = useRouter();
@@ -30,174 +47,79 @@ export default function Calculator() {
   const [birthHour, setBirthHour] = useState(12);
   const [birthMinute, setBirthMinute] = useState(0);
   const [gender, setGender] = useState('male');
-  
-  // 城市选择相关状态
-  const [countries, setCountries] = useState<Country[]>([]);
-  const [selectedCountry, setSelectedCountry] = useState<string>('CN');
-  const [citySearchQuery, setCitySearchQuery] = useState<string>('');
-  const [searchResults, setSearchResults] = useState<WorldCity[]>([]);
-  const [selectedCity, setSelectedCity] = useState<WorldCity | null>(null);
-  const [isLoadingCities, setIsLoadingCities] = useState<boolean>(false);
-  
-  const [solarTime, setSolarTime] = useState<{hour: number, minute: number} | null>(null);
-  const [lunarDate, setLunarDate] = useState<{year: number, month: number, day: number} | null>(null);
-  const [showResults, setShowResults] = useState(false);
-  const [baziChart, setBaziChart] = useState<BaziChartType | null>(null);
-  const [apiResponse, setApiResponse] = useState<any>(null);
+  const [birthLocation, setBirthLocation] = useState(popularLocations[0].name);
+  const [customLocation, setCustomLocation] = useState('');
+  const [customLongitude, setCustomLongitude] = useState('');
+  const [showCustomLocation, setShowCustomLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // 初始化加载国家列表
-  useEffect(() => {
-    const loadCountries = async () => {
-      try {
-        const availableCountries = await worldCitiesData.getAvailableCountries();
-        setCountries(availableCountries);
-      } catch (err) {
-        console.error('Error loading countries:', err);
-      }
-    };
-    
-    loadCountries();
-  }, []);
-  
-  // 当选择国家变化时加载该国家的城市
-  useEffect(() => {
-    const loadCitiesForCountry = async () => {
-      if (!selectedCountry) return;
-      
-      try {
-        setIsLoadingCities(true);
-        
-        // 加载国家的主要城市
-        const cities = await worldCitiesData.getCitiesByCountry(selectedCountry, 10);
-        
-        if (cities && cities.length > 0) {
-          // 设置默认选中的城市为第一个城市
-          setSearchResults(cities);
-          if (!selectedCity) {
-            setSelectedCity(cities[0]);
-          }
-        } else {
-          setSearchResults([]);
-        }
-      } catch (err) {
-        console.error('Error loading cities for country:', err);
-      } finally {
-        setIsLoadingCities(false);
-      }
-    };
-    
-    loadCitiesForCountry();
-  }, [selectedCountry]);
+  // 新增状态
+  const [baziChart, setBaziChart] = useState<BaziChartType | null>(null);
+  const [selectedAnalysisType, setSelectedAnalysisType] = useState<AnalysisType | null>(null);
+  const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // 当用户搜索城市时
-  useEffect(() => {
-    const searchCities = async () => {
-      if (!citySearchQuery || citySearchQuery.trim() === '') {
-        // 如果查询为空，显示选定国家的城市
-        if (selectedCountry) {
-          const cities = await worldCitiesData.getCitiesByCountry(selectedCountry, 10);
-          setSearchResults(cities);
-        }
-        return;
-      }
-      
-      try {
-        setIsLoadingCities(true);
-        const results = await worldCitiesData.searchCitiesByName(citySearchQuery);
-        
-        // 如果选择了国家，过滤搜索结果只包括该国家的城市
-        if (selectedCountry) {
-          const filteredResults = results.filter(city => city.countryCode === selectedCountry);
-          setSearchResults(filteredResults);
-        } else {
-          setSearchResults(results);
-        }
-      } catch (err) {
-        console.error('Error searching cities:', err);
-      } finally {
-        setIsLoadingCities(false);
-      }
-    };
-    
-    // 使用防抖，避免频繁搜索
-    const timeoutId = setTimeout(searchCities, 300);
-    return () => clearTimeout(timeoutId);
-  }, [citySearchQuery, selectedCountry]);
-
-  const generateBaziChart = async () => {
+  const handleCalculate = async () => {
     try {
       setIsLoading(true);
       setError('');
       
-      if (!selectedCity) {
-        throw new Error('Please select a valid city');
-      }
-      
-      // 从选定的城市获取经度、纬度和位置名称
-      const longitude = selectedCity.longitude;
-      const latitude = selectedCity.latitude;
-      const location = `${selectedCity.city}, ${selectedCity.country}`;
-      
-      // 使用DeepSeek API计算八字
-      const chart = await calculateBaziChart(
+      // 准备用户数据
+      const userData = {
+        calendarType,
         birthYear,
         birthMonth,
         birthDay,
         birthHour,
         birthMinute,
-        gender as 'male' | 'female',
-        location,
-        longitude,
-        latitude
-      );
-      
-      // 根据计算获得的真太阳时和农历日期
-      const solarTimeResult = await convertToSolarTime(
-        birthYear,
-        birthMonth,
-        birthDay,
-        birthHour,
-        birthMinute,
-        longitude
-      );
-      
-      // 保存太阳时和农历日期供显示
-      setSolarTime({
-        hour: solarTimeResult.hour,
-        minute: solarTimeResult.minute
-      });
-      
-      if (solarTimeResult.lunarYear && solarTimeResult.lunarMonth && solarTimeResult.lunarDay) {
-        setLunarDate({
-          year: solarTimeResult.lunarYear,
-          month: solarTimeResult.lunarMonth,
-          day: solarTimeResult.lunarDay
-        });
-      }
-      
+        gender,
+        location: showCustomLocation ? customLocation : birthLocation,
+        longitude: showCustomLocation ? parseFloat(customLongitude) : 
+          popularLocations.find(loc => loc.name === birthLocation)?.longitude || 0
+      };
+
+      // 调用 DeepSeek API 进行八字排盘
+      const chart = await doBaziCalculation(userData);
       setBaziChart(chart);
       
-      // 步骤 6: 发送数据到API获取详细分析
-      const userInfo = {
-        birthYear,
-        birthMonth,
-        birthDay,
-        birthHour,
-        birthMinute,
-        gender: gender as 'male' | 'female',
-        location: `${selectedCity.city}, ${selectedCity.country} (${selectedCity.longitude.toFixed(4)}°, ${selectedCity.latitude.toFixed(4)}°)`
-      };
+      // 重置之前的分析结果
+      setSelectedAnalysisType(null);
+      setAnalysisReport(null);
       
-      const response = await sendBaziToAPI(chart, userInfo);
-      setApiResponse(response);
-      setShowResults(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
-      console.error('Error generating BaZi chart:', err);
-    } finally {
       setIsLoading(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发生未知错误');
+      console.error('计算错误:', err);
+      setIsLoading(false);
+    }
+  };
+
+  // 处理分析请求
+  const handleAnalysis = async (type: AnalysisType) => {
+    try {
+      setIsAnalyzing(true);
+      setError('');
+      setSelectedAnalysisType(type);
+
+      if (!baziChart) {
+        throw new Error('请先完成八字排盘');
+      }
+
+      // 调用 DeepSeek API 进行具体分析
+      const analysisContent = await doBaziAnalysis(baziChart, type);
+      
+      setAnalysisReport({
+        type,
+        content: analysisContent,
+        timestamp: new Date().toISOString()
+      });
+
+      setIsAnalyzing(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发生未知错误');
+      console.error('分析错误:', err);
+      setIsAnalyzing(false);
     }
   };
 
@@ -205,13 +127,13 @@ export default function Calculator() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">BaZi Calculator</h1>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">命理计算器</h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Enter your birth details below to calculate your BaZi chart and discover insights about your destiny.
+            请输入您的出生信息以获取命理分析。
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-2xl mx-auto mb-12">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-2xl mx-auto">
           <div className="mb-6">
             <div className="flex justify-center space-x-4 mb-6">
               <button
@@ -222,7 +144,7 @@ export default function Calculator() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                Solar Calendar
+                阳历
               </button>
               <button
                 onClick={() => setCalendarType('lunar')}
@@ -232,14 +154,14 @@ export default function Calculator() {
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                Lunar Calendar
+                阴历
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="birthYear" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Year
+                  出生年
                 </label>
                 <select
                   id="birthYear"
@@ -257,7 +179,7 @@ export default function Calculator() {
 
               <div>
                 <label htmlFor="birthMonth" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Month
+                  出生月
                 </label>
                 <select
                   id="birthMonth"
@@ -275,7 +197,7 @@ export default function Calculator() {
 
               <div>
                 <label htmlFor="birthDay" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Day
+                  出生日
                 </label>
                 <select
                   id="birthDay"
@@ -293,7 +215,7 @@ export default function Calculator() {
 
               <div>
                 <label htmlFor="birthHour" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Hour
+                  出生时
                 </label>
                 <select
                   id="birthHour"
@@ -311,7 +233,7 @@ export default function Calculator() {
               
               <div>
                 <label htmlFor="birthMinute" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Minute
+                  出生分
                 </label>
                 <select
                   id="birthMinute"
@@ -329,7 +251,7 @@ export default function Calculator() {
               
               <div>
                 <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Gender
+                  性别
                 </label>
                 <div className="flex space-x-4">
                   <label className="inline-flex items-center">
@@ -341,7 +263,7 @@ export default function Calculator() {
                       checked={gender === 'male'}
                       onChange={() => setGender('male')}
                     />
-                    <span className="ml-2 text-gray-700 dark:text-gray-300">Male</span>
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">男</span>
                   </label>
                   <label className="inline-flex items-center">
                     <input
@@ -352,98 +274,79 @@ export default function Calculator() {
                       checked={gender === 'female'}
                       onChange={() => setGender('female')}
                     />
-                    <span className="ml-2 text-gray-700 dark:text-gray-300">Female</span>
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">女</span>
                   </label>
                 </div>
               </div>
               
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Birth Location
+                <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  出生地点
                 </label>
                 
-                <div className="mb-4">
-                  <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
-                    <div className="w-full md:w-1/3">
+                <div className="mb-2">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio text-amber-600"
+                      name="locationType"
+                      checked={!showCustomLocation}
+                      onChange={() => setShowCustomLocation(false)}
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">选择常用地点</span>
+                  </label>
+                  <label className="inline-flex items-center ml-4">
+                    <input
+                      type="radio"
+                      className="form-radio text-amber-600"
+                      name="locationType"
+                      checked={showCustomLocation}
+                      onChange={() => setShowCustomLocation(true)}
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">输入自定义地点</span>
+                  </label>
+                </div>
+                
+                {!showCustomLocation ? (
                   <select
-                        value={selectedCountry}
-                        onChange={(e) => {
-                          setSelectedCountry(e.target.value);
-                          setSelectedCity(null);
-                          setCitySearchQuery('');
-                        }}
+                    id="location"
+                    value={birthLocation}
+                    onChange={(e) => setBirthLocation(e.target.value)}
                     className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
-                        {countries.map((country) => (
-                          <option key={country.code} value={country.code}>
-                            {country.chineseName} ({country.name})
+                    {popularLocations.map((loc) => (
+                      <option key={loc.name} value={loc.name}>
+                        {loc.name} (经度: {loc.longitude}°)
                       </option>
                     ))}
                   </select>
-                    </div>
-                    
-                    <div className="relative w-full md:w-2/3">
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
                       <input
                         type="text"
-                        placeholder="Search for a city..."
-                        value={citySearchQuery}
-                        onChange={(e) => setCitySearchQuery(e.target.value)}
+                        id="customLocation"
+                        placeholder="地点名称"
+                        value={customLocation}
+                        onChange={(e) => setCustomLocation(e.target.value)}
                         className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
-                      
-                      {isLoadingCities && (
-                        <div className="absolute right-3 top-2">
-                          <svg className="animate-spin h-5 w-5 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                        </div>
-                      )}
-                      
-                      {searchResults.length > 0 && citySearchQuery && (
-                        <div className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-auto">
-                          {searchResults.map((city, index) => (
-                            <div
-                              key={`${city.id}-${index}`}
-                              onClick={() => {
-                                setSelectedCity(city);
-                                setCitySearchQuery('');
-                              }}
-                              className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
-                            >
-                              <div className="text-gray-900 dark:text-white">
-                                {city.city}
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {city.country} • Long: {city.longitude.toFixed(4)}° • Lat: {city.latitude.toFixed(4)}°
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </div>
-                
-                {selectedCity && (
-                  <div className="p-3 bg-amber-50 dark:bg-gray-700 rounded-md">
-                    <div className="flex flex-col md:flex-row md:justify-between">
-                      <div>
-                        <span className="font-medium">Selected City:</span> {selectedCity.city}
-                      </div>
-                      <div>
-                        <span className="font-medium">Country:</span> {selectedCity.country}
-                      </div>
-                      <div>
-                        <span className="font-medium">Longitude:</span> {selectedCity.longitude.toFixed(4)}°
-                      </div>
+                    <div>
+                      <input
+                        type="text"
+                        id="customLongitude"
+                        placeholder="经度 (如: 114.06 或 -73.94)"
+                        value={customLongitude}
+                        onChange={(e) => setCustomLongitude(e.target.value)}
+                        className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
                     </div>
-                  </div>
-                )}
-                
-                {!selectedCity && (
-                  <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-red-700 dark:text-red-300">
-                    Please select a city for accurate birth time calculations.
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        * 东经为正值，西经为负值
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -458,91 +361,144 @@ export default function Calculator() {
 
           <div className="text-center">
             <button
-              onClick={generateBaziChart}
-              disabled={isLoading || !selectedCity}
+              onClick={handleCalculate}
+              disabled={isLoading}
               className={`w-full md:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-md transition-colors ${
-                (isLoading || !selectedCity) ? 'opacity-70 cursor-not-allowed' : ''
+                isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
-              {isLoading ? 'Calculating...' : 'Calculate BaZi Chart'}
+              {isLoading ? '计算中...' : '开始计算'}
             </button>
           </div>
         </div>
 
-        {showResults && baziChart && (
-          <BaziChart 
-            baziChart={baziChart} 
-            userInfo={{
-              birthYear,
-              birthMonth,
-              birthDay,
-              birthHour,
-              birthMinute,
-              gender: gender as 'male' | 'female',
-              location: selectedCity ? `${selectedCity.city}, ${selectedCity.country}` : '',
-              lunarDate: lunarDate || undefined,
-              solarTime: solarTime || undefined
-            }} 
-          />
+        {/* 八字排盘结果 */}
+        {baziChart && (
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">八字排盘结果</h2>
+            
+            <div className="grid grid-cols-4 gap-4 mb-8">
+              <div className="text-center p-4 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">年柱</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{baziChart.yearPillar}</div>
+              </div>
+              <div className="text-center p-4 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">月柱</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{baziChart.monthPillar}</div>
+              </div>
+              <div className="text-center p-4 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">日柱</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{baziChart.dayPillar}</div>
+              </div>
+              <div className="text-center p-4 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">时柱</div>
+                <div className="text-xl font-bold text-amber-600 dark:text-amber-400">{baziChart.hourPillar}</div>
+              </div>
+            </div>
+            
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">基础分析</h3>
+              <div className="prose dark:prose-invert prose-amber max-w-none">
+                <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                  {baziChart.analysis}
+                </p>
+              </div>
+            </div>
+
+            {/* 分析类型选择 */}
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">选择分析类型</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <button
+                  onClick={() => handleAnalysis('overall')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'overall' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">整体分析</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">全面解读您的八字命盘</div>
+                </button>
+                <button
+                  onClick={() => handleAnalysis('age25')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'age25' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">25岁运势</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">专注25岁重要年份分析</div>
+                </button>
+                <button
+                  onClick={() => handleAnalysis('career')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'career' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">事业分析</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">职业发展和事业机遇</div>
+                </button>
+                <button
+                  onClick={() => handleAnalysis('marriage')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'marriage' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">婚姻分析</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">感情运势和婚姻状况</div>
+                </button>
+                <button
+                  onClick={() => handleAnalysis('wealth')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'wealth' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">财运分析</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">财富机遇和理财建议</div>
+                </button>
+                <button
+                  onClick={() => handleAnalysis('health')}
+                  disabled={isAnalyzing}
+                  className={`p-4 border border-amber-200 dark:border-amber-800 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors ${
+                    selectedAnalysisType === 'health' ? 'bg-amber-100 dark:bg-amber-900/30' : ''
+                  }`}
+                >
+                  <div className="text-lg font-medium text-amber-600 dark:text-amber-400">健康分析</div>
+                  <div className="text-sm text-gray-500 dark:text-gray-400">身体状况和养生建议</div>
+                </button>
+              </div>
+            </div>
+                </div>
         )}
 
-        {showResults && apiResponse && (
-          <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">BaZi Interpretation</h2>
+        {/* 分析报告 */}
+        {analysisReport && (
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-3xl mx-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {analysisReport.type === 'overall' && '整体分析报告'}
+                {analysisReport.type === 'age25' && '25岁运势分析'}
+                {analysisReport.type === 'career' && '事业分析报告'}
+                {analysisReport.type === 'marriage' && '婚姻分析报告'}
+                {analysisReport.type === 'wealth' && '财运分析报告'}
+                {analysisReport.type === 'health' && '健康分析报告'}
+              </h2>
+              <div className="text-sm text-gray-500 dark:text-gray-400">
+                {new Date(analysisReport.timestamp).toLocaleString()}
+              </div>
+            </div>
             
-            <div className="prose dark:prose-invert max-w-none">
-              <h3>Summary</h3>
-              <p>{apiResponse.interpretation.summary}</p>
-              
-              <h3>Career</h3>
-              <p>{apiResponse.interpretation.career}</p>
-              
-              <h3>Relationships</h3>
-              <p>{apiResponse.interpretation.relationships}</p>
-              
-              <h3>Health</h3>
-              <p>{apiResponse.interpretation.health}</p>
-              
-              <h3>Luck</h3>
-              <p>{apiResponse.interpretation.luck}</p>
+                <div className="prose dark:prose-invert prose-amber max-w-none">
+              <div className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
+                {analysisReport.content}
+              </div>
             </div>
           </div>
         )}
       </div>
     </div>
   );
-}
-
-function getElementColor(element: string): string {
-  switch (element.toLowerCase()) {
-    case 'wood':
-      return 'bg-green-500';
-    case 'fire':
-      return 'bg-red-500';
-    case 'earth':
-      return 'bg-amber-500';
-    case 'metal':
-      return 'bg-gray-400';
-    case 'water':
-      return 'bg-blue-500';
-    default:
-      return 'bg-gray-300';
-  }
-}
-
-function getChineseElement(element: string): string {
-  switch (element.toLowerCase()) {
-    case 'wood':
-      return '木';
-    case 'fire':
-      return '火';
-    case 'earth':
-      return '土';
-    case 'metal':
-      return '金';
-    case 'water':
-      return '水';
-    default:
-      return element;
-  }
 } 
