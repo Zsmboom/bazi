@@ -102,7 +102,7 @@ export async function doBaziCalculation(userData: UserData): Promise<BaziChart> 
     });
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 秒超时
+    const timeoutId = setTimeout(() => controller.abort(), 65000); // 65 秒超时
 
     try {
       const response = await fetch('/api/deepseek', {
