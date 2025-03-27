@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { doBaziCalculation, doBaziAnalysis, BaziChart as BaziChartType, AnalysisType } from '@/utils/deepseekApi';
+import CitySearch, { City } from '@/components/CitySearch/CitySearch';
 
 // 分析报告类型
 interface AnalysisReport {
@@ -19,25 +20,6 @@ const dayRange = Array.from({ length: 31 }, (_, i) => i + 1);
 const hourRange = Array.from({ length: 24 }, (_, i) => i);
 const minuteRange = Array.from({ length: 60 }, (_, i) => i);
 
-// Popular locations with their longitudes
-const popularLocations = [
-  { name: 'New York', longitude: -74.0060 },
-  { name: 'Los Angeles', longitude: -118.2437 },
-  { name: 'London', longitude: -0.1278 },
-  { name: 'Paris', longitude: 2.3522 },
-  { name: 'Tokyo', longitude: 139.6917 },
-  { name: 'Sydney', longitude: 151.2093 },
-  { name: 'Beijing', longitude: 116.4074 },
-  { name: 'Shanghai', longitude: 121.4737 },
-  { name: 'Hong Kong', longitude: 114.1694 },
-  { name: 'Singapore', longitude: 103.8198 },
-  { name: 'Mumbai', longitude: 72.8777 },
-  { name: 'Dubai', longitude: 55.2708 },
-  { name: 'Cairo', longitude: 31.2357 },
-  { name: 'Moscow', longitude: 37.6173 },
-  { name: 'Berlin', longitude: 13.4050 },
-];
-
 export default function Calculator() {
   const router = useRouter();
   const [calendarType, setCalendarType] = useState('solar');
@@ -47,7 +29,7 @@ export default function Calculator() {
   const [birthHour, setBirthHour] = useState(12);
   const [birthMinute, setBirthMinute] = useState(0);
   const [gender, setGender] = useState('male');
-  const [birthLocation, setBirthLocation] = useState(popularLocations[0].name);
+  const [selectedCity, setSelectedCity] = useState<City | null>(null);
   const [customLocation, setCustomLocation] = useState('');
   const [customLongitude, setCustomLongitude] = useState('');
   const [showCustomLocation, setShowCustomLocation] = useState(false);
@@ -59,6 +41,10 @@ export default function Calculator() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<AnalysisType | null>(null);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const handleCitySelect = (city: City) => {
+    setSelectedCity(city);
+  };
 
   const handleCalculate = async () => {
     try {
@@ -74,9 +60,12 @@ export default function Calculator() {
         birthHour,
         birthMinute,
         gender,
-        location: showCustomLocation ? customLocation : birthLocation,
-        longitude: showCustomLocation ? parseFloat(customLongitude) : 
-          popularLocations.find(loc => loc.name === birthLocation)?.longitude || 0
+        location: showCustomLocation 
+          ? customLocation 
+          : selectedCity ? selectedCity.name : '未知地点',
+        longitude: showCustomLocation 
+          ? parseFloat(customLongitude) 
+          : selectedCity ? parseFloat(selectedCity.lng) : 0
       };
 
       // 调用 DeepSeek API 进行八字排盘
@@ -250,9 +239,7 @@ export default function Calculator() {
               </div>
               
               <div>
-                <label htmlFor="gender" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  性别
-                </label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">性别</label>
                 <div className="flex space-x-4">
                   <label className="inline-flex items-center">
                     <input
@@ -279,11 +266,10 @@ export default function Calculator() {
                 </div>
               </div>
               
-              <div className="md:col-span-2">
-                <label htmlFor="location" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <div>
+                <label htmlFor="birthLocation" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   出生地点
                 </label>
-                
                 <div className="mb-2">
                   <label className="inline-flex items-center">
                     <input
@@ -293,7 +279,7 @@ export default function Calculator() {
                       checked={!showCustomLocation}
                       onChange={() => setShowCustomLocation(false)}
                     />
-                    <span className="ml-2 text-gray-700 dark:text-gray-300">选择常用地点</span>
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">搜索城市</span>
                   </label>
                   <label className="inline-flex items-center ml-4">
                     <input
@@ -308,18 +294,10 @@ export default function Calculator() {
                 </div>
                 
                 {!showCustomLocation ? (
-                  <select
-                    id="location"
-                    value={birthLocation}
-                    onChange={(e) => setBirthLocation(e.target.value)}
-                    className="block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  >
-                    {popularLocations.map((loc) => (
-                      <option key={loc.name} value={loc.name}>
-                        {loc.name} (经度: {loc.longitude}°)
-                      </option>
-                    ))}
-                  </select>
+                  <CitySearch 
+                    selectedCity={selectedCity}
+                    onCitySelect={handleCitySelect}
+                  />
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
@@ -471,7 +449,7 @@ export default function Calculator() {
                 </button>
               </div>
             </div>
-                </div>
+          </div>
         )}
 
         {/* 分析报告 */}
@@ -487,11 +465,10 @@ export default function Calculator() {
                 {analysisReport.type === 'health' && '健康分析报告'}
               </h2>
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {new Date(analysisReport.timestamp).toLocaleString()}
+                {new Date(analysisReport.timestamp).toLocaleString('zh-CN')}
               </div>
             </div>
-            
-                <div className="prose dark:prose-invert prose-amber max-w-none">
+            <div className="prose dark:prose-invert prose-amber max-w-none">
               <div className="whitespace-pre-wrap text-gray-600 dark:text-gray-300">
                 {analysisReport.content}
               </div>
