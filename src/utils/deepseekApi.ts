@@ -93,10 +93,19 @@ export interface UserData {
  */
 export async function doBaziCalculation(userData: UserData): Promise<BaziChart> {
   try {
+    console.log('开始八字排盘计算，用户数据:', {
+      ...userData,
+      // 排除敏感信息
+      birthYear: undefined,
+      birthMonth: undefined,
+      birthDay: undefined
+    });
+
     const response = await fetch('/api/deepseek', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
         action: 'calculate',
@@ -104,15 +113,57 @@ export async function doBaziCalculation(userData: UserData): Promise<BaziChart> 
       })
     });
 
+    console.log('API 响应状态:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API请求错误：${response.status} - ${errorData.error || JSON.stringify(errorData)}`);
+      let errorData;
+      try {
+        const errorText = await response.text();
+        console.error('API 错误响应原始内容:', errorText);
+        
+        try {
+          errorData = JSON.parse(errorText);
+        } catch (parseError) {
+          console.error('解析错误响应失败:', parseError);
+          throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+        }
+      } catch (error) {
+        console.error('读取错误响应失败:', error);
+        throw new Error(`API请求失败: ${response.status}`);
+      }
+      
+      console.error('API 请求失败:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData
+      });
+      
+      throw new Error(`API请求错误：${response.status} - ${errorData.error || ''} ${errorData.details || ''}`);
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      const rawText = await response.text();
+      console.log('API 响应原始内容:', rawText);
+      
+      try {
+        data = JSON.parse(rawText);
+      } catch (parseError) {
+        console.error('JSON 解析失败，原始响应:', rawText);
+        throw new Error(`解析响应数据失败: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
+    } catch (error) {
+      console.error('读取响应内容失败:', error);
+      throw new Error(`读取响应内容失败: ${error instanceof Error ? error.message : String(error)}`);
+    }
     
     if (!data.chart) {
-      throw new Error('获取八字排盘结果失败');
+      console.error('响应数据中缺少 chart:', data);
+      throw new Error('获取八字排盘结果失败: 响应数据中缺少 chart 字段');
     }
 
     return data.chart as BaziChart;

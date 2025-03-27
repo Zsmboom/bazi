@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const { action, data } = body;
 
     // 获取环境变量
-    const apiUrl = process.env.NEXT_PUBLIC_DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
+    const apiUrl = process.env.DEEPSEEK_API_URL || process.env.NEXT_PUBLIC_DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
     const apiKey = process.env.DEEPSEEK_API_KEY;
     const model = process.env.DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3';
 
@@ -17,10 +17,13 @@ export async function POST(request: NextRequest) {
     console.log('DeepSeek API 配置:', {
       apiUrl,
       hasApiKey: !!apiKey,
-      model
+      model,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV
     });
 
     if (!apiKey) {
+      console.error('DeepSeek API 密钥未配置');
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
@@ -183,11 +186,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 调用 DeepSeek API
+    console.log('准备调用 DeepSeek API，请求参数:', {
+      url: apiUrl,
+      model,
+      messageCount: messages.length,
+      temperature: 0.7,
+      max_tokens: 4000
+    });
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json'
       },
       body: JSON.stringify({
         model: model,
@@ -197,12 +209,22 @@ export async function POST(request: NextRequest) {
       })
     });
 
+    // 记录响应状态
+    console.log('DeepSeek API 响应状态:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('DeepSeek API 错误响应:', {
         status: response.status,
         statusText: response.statusText,
-        errorText
+        errorText,
+        url: apiUrl,
+        hasApiKey: !!apiKey,
+        model: model
       });
       return NextResponse.json(
         { error: `DeepSeek API Error: ${response.status}`, details: errorText }, 
@@ -212,13 +234,22 @@ export async function POST(request: NextRequest) {
 
     let result;
     try {
-      result = await response.json();
+      const rawText = await response.text();
+      console.log('DeepSeek API 原始响应:', rawText);
+      
+      try {
+        result = JSON.parse(rawText);
+      } catch (parseError) {
+        console.error('JSON 解析失败，原始响应:', rawText);
+        return NextResponse.json(
+          { error: 'Invalid JSON response from DeepSeek API', details: rawText },
+          { status: 500 }
+        );
+      }
     } catch (error) {
-      console.error('解析 DeepSeek API 响应失败:', error);
-      const rawResponse = await response.text();
-      console.error('原始响应:', rawResponse);
+      console.error('读取响应内容失败:', error);
       return NextResponse.json(
-        { error: 'Failed to parse DeepSeek API response', details: rawResponse },
+        { error: 'Failed to read DeepSeek API response', details: String(error) },
         { status: 500 }
       );
     }
