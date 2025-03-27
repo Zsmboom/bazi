@@ -101,75 +101,96 @@ export async function doBaziCalculation(userData: UserData): Promise<BaziChart> 
       birthDay: undefined
     });
 
-    const response = await fetch('/api/deepseek', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        action: 'calculate',
-        data: userData
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 秒超时
 
-    console.log('API 响应状态:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    try {
+      const response = await fetch('/api/deepseek', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          action: 'calculate',
+          data: userData
+        }),
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      let errorData;
-      try {
-        const errorText = await response.text();
-        console.error('API 错误响应原始内容:', errorText);
-        
-        try {
-          errorData = JSON.parse(errorText);
-        } catch (parseError) {
-          console.error('解析错误响应失败:', parseError);
-          throw new Error(`API请求失败: ${response.status} - ${errorText}`);
-        }
-      } catch (error) {
-        console.error('读取错误响应失败:', error);
-        throw new Error(`API请求失败: ${response.status}`);
-      }
-      
-      console.error('API 请求失败:', {
+      clearTimeout(timeoutId);
+
+      console.log('API 响应状态:', {
         status: response.status,
         statusText: response.statusText,
-        errorData
+        headers: Object.fromEntries(response.headers.entries())
       });
-      
-      throw new Error(`API请求错误：${response.status} - ${errorData.error || ''} ${errorData.details || ''}`);
-    }
 
-    let data;
-    try {
-      const rawText = await response.text();
-      console.log('API 响应原始内容:', rawText);
-      
-      try {
-        data = JSON.parse(rawText);
-      } catch (parseError) {
-        console.error('JSON 解析失败，原始响应:', rawText);
-        throw new Error(`解析响应数据失败: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      if (!response.ok) {
+        let errorData;
+        try {
+          const errorText = await response.text();
+          console.error('API 错误响应原始内容:', errorText);
+          
+          try {
+            errorData = JSON.parse(errorText);
+          } catch (parseError) {
+            console.error('解析错误响应失败:', parseError);
+            throw new Error(`API请求失败: ${response.status} - ${errorText}`);
+          }
+        } catch (error) {
+          console.error('读取错误响应失败:', error);
+          if (response.status === 504) {
+            throw new Error('八字排盘请求超时，请稍后重试');
+          }
+          throw new Error(`API请求失败: ${response.status}`);
+        }
+        
+        console.error('API 请求失败:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
+        
+        if (response.status === 504) {
+          throw new Error('八字排盘请求超时，请稍后重试');
+        }
+        
+        throw new Error(`API请求错误：${response.status} - ${errorData.error || ''} ${errorData.details || ''}`);
       }
-    } catch (error) {
-      console.error('读取响应内容失败:', error);
-      throw new Error(`读取响应内容失败: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    
-    if (!data.chart) {
-      console.error('响应数据中缺少 chart:', data);
-      throw new Error('获取八字排盘结果失败: 响应数据中缺少 chart 字段');
-    }
 
-    return data.chart as BaziChart;
+      let data;
+      try {
+        const rawText = await response.text();
+        console.log('API 响应原始内容:', rawText);
+        
+        try {
+          data = JSON.parse(rawText);
+        } catch (parseError) {
+          console.error('JSON 解析失败，原始响应:', rawText);
+          throw new Error('服务器返回的数据格式无效，请稍后重试');
+        }
+      } catch (error) {
+        console.error('读取响应内容失败:', error);
+        throw new Error('读取服务器响应失败，请稍后重试');
+      }
+      
+      if (!data.chart) {
+        console.error('响应数据中缺少 chart:', data);
+        throw new Error('八字排盘结果格式错误，请稍后重试');
+      }
+
+      return data.chart as BaziChart;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
   } catch (error) {
     console.error('八字排盘失败:', error);
-    throw new Error(`八字排盘失败: ${error instanceof Error ? error.message : String(error)}`);
+    if (error instanceof Error) {
+      throw new Error(error.message);
+    }
+    throw new Error('八字排盘失败，请稍后重试');
   }
 }
 

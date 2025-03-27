@@ -9,9 +9,9 @@ export async function POST(request: NextRequest) {
     const { action, data } = body;
 
     // 获取环境变量
-    const apiUrl = process.env.DEEPSEEK_API_URL || process.env.NEXT_PUBLIC_DEEPSEEK_API_URL || 'https://api.siliconflow.cn/v1/chat/completions';
+    const apiUrl = process.env.DEEPSEEK_API_URL || 'https://vip.apiyi.com/v1/chat/completions';
     const apiKey = process.env.DEEPSEEK_API_KEY;
-    const model = process.env.DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3';
+    const model = process.env.DEEPSEEK_MODEL || 'deepseek-v3';
 
     // 添加调试日志
     console.log('DeepSeek API 配置:', {
@@ -194,46 +194,67 @@ export async function POST(request: NextRequest) {
       max_tokens: 4000
     });
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 4000
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 秒超时
 
-    // 记录响应状态
-    console.log('DeepSeek API 响应状态:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries())
-    });
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: 0.7,
+          max_tokens: 4000,
+          stream: false
+        }),
+        signal: controller.signal
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('DeepSeek API 错误响应:', {
+      clearTimeout(timeoutId);
+
+      // 记录响应状态
+      console.log('DeepSeek API 响应状态:', {
         status: response.status,
         statusText: response.statusText,
-        errorText,
-        url: apiUrl,
-        hasApiKey: !!apiKey,
-        model: model
+        headers: Object.fromEntries(response.headers.entries())
       });
-      return NextResponse.json(
-        { error: `DeepSeek API Error: ${response.status}`, details: errorText }, 
-        { status: response.status }
-      );
-    }
 
-    let result;
-    try {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('DeepSeek API 错误响应:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          url: apiUrl,
+          hasApiKey: !!apiKey,
+          model: model
+        });
+
+        let errorMessage = `DeepSeek API Error: ${response.status}`;
+        let errorDetails = errorText;
+
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error) {
+            errorMessage = typeof errorJson.error === 'string' ? errorJson.error : JSON.stringify(errorJson.error);
+            errorDetails = errorJson.details || errorText;
+          }
+        } catch (e) {
+          // 如果解析失败，使用原始错误文本
+        }
+
+        return NextResponse.json(
+          { error: errorMessage, details: errorDetails },
+          { status: response.status }
+        );
+      }
+
+      let result;
       const rawText = await response.text();
       console.log('DeepSeek API 原始响应:', rawText);
       
@@ -242,58 +263,70 @@ export async function POST(request: NextRequest) {
       } catch (parseError) {
         console.error('JSON 解析失败，原始响应:', rawText);
         return NextResponse.json(
-          { error: 'Invalid JSON response from DeepSeek API', details: rawText },
+          { 
+            error: 'Invalid JSON response from DeepSeek API', 
+            details: rawText.substring(0, 1000) // 限制错误详情的长度
+          },
           { status: 500 }
         );
       }
-    } catch (error) {
-      console.error('读取响应内容失败:', error);
-      return NextResponse.json(
-        { error: 'Failed to read DeepSeek API response', details: String(error) },
-        { status: 500 }
-      );
-    }
-    
-    // 如果是排盘操作，尝试从返回内容中提取 JSON
-    if (action === 'calculate') {
-      const content = result.choices[0].message.content;
-      try {
-        // 添加日志以查看原始内容
-        console.log('DeepSeek API 返回的原始内容:', content);
-        
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          try {
-            const chart = JSON.parse(jsonMatch[0]);
-            return NextResponse.json({ chart });
-          } catch (parseError) {
-            console.error('解析八字数据失败:', parseError);
-            console.error('尝试解析的 JSON 字符串:', jsonMatch[0]);
-            const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
+
+      // 如果是排盘操作，尝试从返回内容中提取 JSON
+      if (action === 'calculate') {
+        const content = result.choices[0].message.content;
+        try {
+          // 添加日志以查看原始内容
+          console.log('DeepSeek API 返回的原始内容:', content);
+          
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            try {
+              const chart = JSON.parse(jsonMatch[0]);
+              return NextResponse.json({ chart });
+            } catch (parseError) {
+              console.error('解析八字数据失败:', parseError);
+              console.error('尝试解析的 JSON 字符串:', jsonMatch[0]);
+              return NextResponse.json({ 
+                error: 'Failed to parse BaZi data', 
+                details: `Invalid JSON format in response. Raw content: ${content.substring(0, 1000)}` 
+              }, { status: 500 });
+            }
+          } else {
+            console.error('未找到 JSON 数据在响应中');
             return NextResponse.json({ 
-              error: 'Failed to parse BaZi data', 
-              details: `Parse error: ${errorMessage}. Content: ${jsonMatch[0].substring(0, 200)}...` 
+              error: 'Invalid response format', 
+              details: `No JSON data found in response. Content: ${content.substring(0, 1000)}` 
             }, { status: 500 });
           }
-        } else {
-          console.error('未找到 JSON 数据在响应中');
+        } catch (error) {
+          console.error('处理八字数据失败:', error);
           return NextResponse.json({ 
-            error: 'Could not extract BaZi data from response',
-            details: `Response content: ${content.substring(0, 200)}...` 
+            error: 'Failed to process response', 
+            details: error instanceof Error ? error.message : String(error)
           }, { status: 500 });
         }
-      } catch (parseError) {
-        console.error('处理八字数据失败:', parseError);
-        return NextResponse.json({ 
-          error: 'Failed to process BaZi data', 
-          details: parseError instanceof Error ? parseError.message : String(parseError) 
-        }, { status: 500 });
+      } else {
+        // 分析操作直接返回内容
+        return NextResponse.json({ analysis: result.choices[0].message.content });
       }
-    } else {
-      // 分析操作直接返回内容
-      return NextResponse.json({ analysis: result.choices[0].message.content });
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      
+      if (error.name === 'AbortError') {
+        console.error('DeepSeek API 请求超时');
+        return NextResponse.json({ 
+          error: 'Request timeout', 
+          details: 'The request to DeepSeek API timed out after 25 seconds' 
+        }, { status: 504 });
+      }
+
+      console.error('调用 DeepSeek API 时发生错误:', error);
+      return NextResponse.json({ 
+        error: 'API request failed', 
+        details: error instanceof Error ? error.message : String(error)
+      }, { status: 500 });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('处理请求时发生错误:', error);
     return NextResponse.json(
       { 
