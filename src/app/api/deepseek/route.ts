@@ -13,6 +13,13 @@ export async function POST(request: NextRequest) {
     const apiKey = process.env.DEEPSEEK_API_KEY;
     const model = process.env.DEEPSEEK_MODEL || 'deepseek-ai/DeepSeek-V3';
 
+    // 添加调试日志
+    console.log('DeepSeek API 配置:', {
+      apiUrl,
+      hasApiKey: !!apiKey,
+      model
+    });
+
     if (!apiKey) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
 9. 天干地支相生相克关系
 10. 阴历出生日期
 11. 属相（如：龙、蛇、马等）
-12. 基于八字命盘，推荐3个适合的中文名字（包含姓和名），每个名字必须提供汉字、拼音和结合八字命盘的含义解释
+12. 基于八字命盘，推荐3个适合的中文名字（包含姓和名，姓从百家姓中选择），每个名字必须提供汉字、拼音和结合八字命盘的含义解释
 
 结果请使用以下JSON格式返回（不要有其他内容，只返回JSON）：
 {
@@ -191,37 +198,77 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
+      const errorText = await response.text();
+      console.error('DeepSeek API 错误响应:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorText
+      });
       return NextResponse.json(
-        { error: `DeepSeek API Error: ${response.status}`, details: errorData }, 
+        { error: `DeepSeek API Error: ${response.status}`, details: errorText }, 
         { status: response.status }
       );
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (error) {
+      console.error('解析 DeepSeek API 响应失败:', error);
+      const rawResponse = await response.text();
+      console.error('原始响应:', rawResponse);
+      return NextResponse.json(
+        { error: 'Failed to parse DeepSeek API response', details: rawResponse },
+        { status: 500 }
+      );
+    }
     
     // 如果是排盘操作，尝试从返回内容中提取 JSON
     if (action === 'calculate') {
       const content = result.choices[0].message.content;
       try {
+        // 添加日志以查看原始内容
+        console.log('DeepSeek API 返回的原始内容:', content);
+        
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          const chart = JSON.parse(jsonMatch[0]);
-          return NextResponse.json({ chart });
+          try {
+            const chart = JSON.parse(jsonMatch[0]);
+            return NextResponse.json({ chart });
+          } catch (parseError) {
+            console.error('解析八字数据失败:', parseError);
+            console.error('尝试解析的 JSON 字符串:', jsonMatch[0]);
+            return NextResponse.json({ 
+              error: 'Failed to parse BaZi data', 
+              details: `Parse error: ${parseError.message}. Content: ${jsonMatch[0].substring(0, 200)}...` 
+            }, { status: 500 });
+          }
         } else {
-          return NextResponse.json({ error: 'Could not extract BaZi data from response' }, { status: 500 });
+          console.error('未找到 JSON 数据在响应中');
+          return NextResponse.json({ 
+            error: 'Could not extract BaZi data from response',
+            details: `Response content: ${content.substring(0, 200)}...` 
+          }, { status: 500 });
         }
       } catch (parseError) {
-        return NextResponse.json({ error: 'Failed to parse BaZi data', details: parseError }, { status: 500 });
+        console.error('处理八字数据失败:', parseError);
+        return NextResponse.json({ 
+          error: 'Failed to process BaZi data', 
+          details: parseError instanceof Error ? parseError.message : String(parseError) 
+        }, { status: 500 });
       }
     } else {
       // 分析操作直接返回内容
       return NextResponse.json({ analysis: result.choices[0].message.content });
     }
   } catch (error) {
-    console.error('Error processing request:', error);
+    console.error('处理请求时发生错误:', error);
     return NextResponse.json(
-      { error: 'Server error processing request', details: error instanceof Error ? error.message : String(error) }, 
+      { 
+        error: 'Server error processing request', 
+        details: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      }, 
       { status: 500 }
     );
   }
