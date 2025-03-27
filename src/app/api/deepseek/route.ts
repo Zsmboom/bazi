@@ -238,9 +238,10 @@ export async function POST(request: NextRequest) {
           } catch (parseError) {
             console.error('解析八字数据失败:', parseError);
             console.error('尝试解析的 JSON 字符串:', jsonMatch[0]);
+            const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
             return NextResponse.json({ 
               error: 'Failed to parse BaZi data', 
-              details: `Parse error: ${parseError.message}. Content: ${jsonMatch[0].substring(0, 200)}...` 
+              details: `Parse error: ${errorMessage}. Content: ${jsonMatch[0].substring(0, 200)}...` 
             }, { status: 500 });
           }
         } else {
