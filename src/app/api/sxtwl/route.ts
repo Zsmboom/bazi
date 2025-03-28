@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
 import datetime
 import json
 import sys
-sys.path.append('${path.join(process.cwd(), 'src', 'app', 'api', 'python')}')
+sys.path.append('${path.join(process.cwd(), 'api', 'python')}')
 from bazi_with_sxtwl import calculate_bazi
 
 # 用户输入数据
