@@ -7,7 +7,7 @@
   "framework": "nextjs",
   "builds": [
     {
-      "src": "api/python/*.py",
+      "src": "api/python/handler.py",
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "15mb",
@@ -22,7 +22,8 @@
   "routes": [
     {
       "src": "/api/sxtwl",
-      "dest": "/api/python/bazi_with_sxtwl.py"
+      "methods": ["POST"],
+      "dest": "/api/python/handler.py"
     },
     {
       "src": "/(.*)",
