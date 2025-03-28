@@ -1,6 +1,12 @@
-from http.server import BaseHTTPRequestHandler
 import json
 import datetime
+import os
+import sys
+
+# 添加当前目录到Python路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(current_dir)
+
 from bazi_with_sxtwl import calculate_bazi
 
 def handler(event, context):
@@ -36,7 +42,10 @@ def handler(event, context):
         return {
             'statusCode': 200,
             'headers': {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'POST'
             },
             'body': json.dumps({
                 'chart': {
@@ -50,7 +59,10 @@ def handler(event, context):
         return {
             'statusCode': 500,
             'headers': {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type',
+                'Access-Control-Allow-Methods': 'POST'
             },
             'body': json.dumps({
                 'error': '八字计算失败',
