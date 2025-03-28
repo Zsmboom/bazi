@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       const genderText = gender === 'male' ? '男' : '女';
 
       // 保持中文提示词，以确保结果的准确性
-      const prompt = `请根据以下出生信息进行详细的八字排盘，需要根据经纬度计算太阳时：
+      const prompt = `请根据以下出生信息进行详细的八字排盘，请结合真太阳时进行调整，并推演八字命盘：
 - 历法：${calendarTypeText}
 - 出生日期：${birthYear}年${birthMonth}月${birthDay}日
 - 出生时间：${birthHour}时${birthMinute}分

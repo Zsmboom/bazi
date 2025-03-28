@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { doBaziCalculation, doBaziAnalysis, BaziChart as BaziChartType, AnalysisType } from '@/utils/deepseekApi';
+import { doSxtwlBaziCalculation, SxtwlBaziChart } from '@/utils/sxtwlApi';
 import CitySearch, { City } from '@/components/CitySearch/CitySearch';
 
 // 分析报告类型
@@ -42,6 +43,11 @@ export default function Calculator() {
   const [selectedAnalysisType, setSelectedAnalysisType] = useState<AnalysisType | null>(null);
   const [analysisReport, setAnalysisReport] = useState<AnalysisReport | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // 新增逻辑推演相关状态
+  const [isSxtwlLoading, setIsSxtwlLoading] = useState(false);
+  const [sxtwlBaziChart, setSxtwlBaziChart] = useState<SxtwlBaziChart | null>(null);
+  const [sxtwlError, setSxtwlError] = useState('');
 
   const handleCitySelect = (city: City) => {
     setSelectedCity(city);
@@ -91,11 +97,63 @@ export default function Calculator() {
       setSelectedAnalysisType(null);
       setAnalysisReport(null);
       
+      // 重置逻辑推演结果
+      setSxtwlBaziChart(null);
+      setSxtwlError('');
+      
       setIsLoading(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
       console.error('Calculation error:', err);
       setIsLoading(false);
+    }
+  };
+
+  // 新增逻辑推演方法
+  const handleSxtwlCalculate = async () => {
+    try {
+      // 验证必填项
+      if (!gender) {
+        setSxtwlError('Please specify gender');
+        return;
+      }
+
+      // 位置验证
+      if ((!showCustomLocation && !selectedCity) || (showCustomLocation && (!customLocation || !customLongitude))) {
+        setSxtwlError('Please specify a valid location');
+        return;
+      }
+
+      setIsSxtwlLoading(true);
+      setSxtwlError('');
+      
+      // 准备用户数据
+      const userData = {
+        calendarType,
+        birthYear,
+        birthMonth,
+        birthDay,
+        birthHour,
+        birthMinute,
+        gender,
+        userName,
+        location: showCustomLocation 
+          ? customLocation 
+          : selectedCity ? selectedCity.name : '',
+        longitude: showCustomLocation 
+          ? parseFloat(customLongitude) 
+          : selectedCity ? parseFloat(selectedCity.lng) : 0
+      };
+
+      // 调用 SXTWL API 进行八字排盘
+      const chart = await doSxtwlBaziCalculation(userData);
+      setSxtwlBaziChart(chart);
+      
+      setIsSxtwlLoading(false);
+    } catch (err) {
+      setSxtwlError(err instanceof Error ? err.message : 'An unknown error occurred');
+      console.error('SXTWL calculation error:', err);
+      setIsSxtwlLoading(false);
     }
   };
 
@@ -455,20 +513,29 @@ export default function Calculator() {
             </div>
           )}
 
-          <div className="text-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
               onClick={handleCalculate}
               disabled={isLoading}
-              className={`w-full md:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-md transition-colors ${
+              className={`w-full sm:w-auto px-6 py-3 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded-lg shadow-md transition-colors ${
                 isLoading ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {isLoading ? 'Calculating...' : 'Calculate with Current Values'}
             </button>
-            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              You can use default values for all required fields
-            </p>
+            <button
+              onClick={handleSxtwlCalculate}
+              disabled={isSxtwlLoading}
+              className={`w-full sm:w-auto px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-md transition-colors ${
+                isSxtwlLoading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              {isSxtwlLoading ? 'Calculating...' : '逻辑推演'}
+            </button>
           </div>
+          <p className="mt-2 text-sm text-center text-gray-500 dark:text-gray-400">
+            You can use default values for all required fields
+          </p>
         </div>
 
         {/* 八字排盘结果 */}
@@ -739,6 +806,198 @@ export default function Calculator() {
                   <div className="text-sm text-gray-500 dark:text-gray-400">Physical condition and wellness tips</div>
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* SXTWL 八字计算结果 */}
+        {sxtwlBaziChart && (
+          <div className="mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 md:p-8 max-w-6xl mx-auto">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">SXTWL BaZi Results <span className="text-lg font-normal">(逻辑推演结果)</span></h2>
+            
+            {sxtwlError && (
+              <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {sxtwlError}
+              </div>
+            )}
+            
+            {/* 排盘表格 */}
+            <div className="overflow-x-auto mb-8">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-gray-100 dark:bg-gray-700">
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 w-1/5"></th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 w-1/5 text-center text-gray-600 dark:text-gray-300">Year Pillar<br/><span className="text-xs">年柱</span></th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 w-1/5 text-center text-gray-600 dark:text-gray-300">Month Pillar<br/><span className="text-xs">月柱</span></th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 w-1/5 text-center text-gray-600 dark:text-gray-300">Day Pillar<br/><span className="text-xs">日柱</span></th>
+                    <th className="border border-gray-300 dark:border-gray-600 p-2 w-1/5 text-center text-gray-600 dark:text-gray-300">Hour Pillar<br/><span className="text-xs">时柱</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* 干神行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Gan Shen<br/><span className="text-xs">干神</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-blue-600 dark:text-blue-400">{sxtwlBaziChart.ganShen.year}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-green-600 dark:text-green-400">{sxtwlBaziChart.ganShen.month}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-amber-700 dark:text-amber-500">{sxtwlBaziChart.ganShen.day}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-teal-600 dark:text-teal-400">{sxtwlBaziChart.ganShen.hour}</td>
+                  </tr>
+                  
+                  {/* 天干行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Heavenly Stem<br/><span className="text-xs">天干</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-blue-600 dark:text-blue-400 text-xl font-bold">{sxtwlBaziChart.tianGan.year}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-green-600 dark:text-green-400 text-xl font-bold">{sxtwlBaziChart.tianGan.month}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-amber-700 dark:text-amber-500 text-xl font-bold">{sxtwlBaziChart.tianGan.day}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-teal-600 dark:text-teal-400 text-xl font-bold">{sxtwlBaziChart.tianGan.hour}</td>
+                  </tr>
+                  
+                  {/* 地支行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Earthly Branch<br/><span className="text-xs">地支</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-orange-600 dark:text-orange-400 text-xl font-bold">{sxtwlBaziChart.diZhi.year}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-orange-600 dark:text-orange-400 text-xl font-bold">{sxtwlBaziChart.diZhi.month}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-orange-600 dark:text-orange-400 text-xl font-bold">{sxtwlBaziChart.diZhi.day}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-orange-600 dark:text-orange-400 text-xl font-bold">{sxtwlBaziChart.diZhi.hour}</td>
+                  </tr>
+                  
+                  {/* 藏干行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Hidden Stem<br/><span className="text-xs">藏干</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.cangGan.year.map((cg, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-amber-600 dark:text-amber-400`}>{cg}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.cangGan.month.map((cg, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-amber-600 dark:text-amber-400`}>{cg}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.cangGan.day.map((cg, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-amber-600 dark:text-amber-400`}>{cg}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.cangGan.hour.map((cg, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-amber-600 dark:text-amber-400`}>{cg}</div>
+                      ))}
+                    </td>
+                  </tr>
+                  
+                  {/* 支神行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Branch Deity<br/><span className="text-xs">支神</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.zhiShen.year.map((zs, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-indigo-600 dark:text-indigo-400`}>{zs}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.zhiShen.month.map((zs, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-indigo-600 dark:text-indigo-400`}>{zs}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.zhiShen.day.map((zs, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-indigo-600 dark:text-indigo-400`}>{zs}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.zhiShen.hour.map((zs, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-indigo-600 dark:text-indigo-400`}>{zs}</div>
+                      ))}
+                    </td>
+                  </tr>
+                  
+                  {/* 纳音行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Na Yin<br/><span className="text-xs">纳音</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-purple-600 dark:text-purple-400">{sxtwlBaziChart.naYin.year}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-purple-600 dark:text-purple-400">{sxtwlBaziChart.naYin.month}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-purple-600 dark:text-purple-400">{sxtwlBaziChart.naYin.day}</td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center text-purple-600 dark:text-purple-400">{sxtwlBaziChart.naYin.hour}</td>
+                  </tr>
+                  
+                  {/* 神煞行 */}
+                  <tr>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Shen Sha<br/><span className="text-xs">神煞</span></td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.shenSha.year.map((ss, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-red-600 dark:text-red-400`}>{ss}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.shenSha.month.map((ss, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-red-600 dark:text-red-400`}>{ss}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.shenSha.day.map((ss, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-red-600 dark:text-red-400`}>{ss}</div>
+                      ))}
+                    </td>
+                    <td className="border border-gray-300 dark:border-gray-600 p-2 text-center">
+                      {sxtwlBaziChart.shenSha.hour.map((ss, idx) => (
+                        <div key={idx} className={`${idx > 0 ? 'mt-1' : ''} text-red-600 dark:text-red-400`}>{ss}</div>
+                      ))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            {/* 天干地支相生相克关系 */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Five Elements Relationships <span className="text-sm font-normal">(天干地支相生相克)</span></h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-600 dark:text-amber-400 mb-2">Heavenly Stem Relationships <span className="text-sm font-normal">(天干相生相克)</span></h4>
+                  <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                    {sxtwlBaziChart.relations.tianGan}
+                  </p>
+                </div>
+                <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-600 dark:text-amber-400 mb-2">Earthly Branch Relationships <span className="text-sm font-normal">(地支相生相克)</span></h4>
+                  <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
+                    {sxtwlBaziChart.relations.diZhi}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* 阴历生日和属相 */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Lunar Date & Zodiac <span className="text-sm font-normal">(阴历生日与属相)</span></h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-600 dark:text-amber-400 mb-2">Lunar Date <span className="text-sm font-normal">(阴历生日)</span></h4>
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200">
+                    {sxtwlBaziChart.lunarDate.year}年
+                    {sxtwlBaziChart.lunarDate.leap ? '闰' : ''}
+                    {sxtwlBaziChart.lunarDate.month}月
+                    {sxtwlBaziChart.lunarDate.day}日
+                  </p>
+                </div>
+                <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                  <h4 className="font-medium text-amber-600 dark:text-amber-400 mb-2">Zodiac Sign <span className="text-sm font-normal">(属相)</span></h4>
+                  <p className="text-xl font-bold text-gray-700 dark:text-gray-200">{sxtwlBaziChart.zodiac}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">True Solar Time <span className="text-sm font-normal">(真太阳时)</span></h3>
+              <div className="border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <p className="text-lg text-center font-bold text-gray-700 dark:text-gray-200">
+                  {sxtwlBaziChart.真太阳时}
+                </p>
+              </div>
+            </div>
+            
+            <div className="mb-4 text-center text-sm text-gray-500 dark:text-gray-400">
+              <p>Calculated using Python SXTWL library for highest accuracy</p>
             </div>
           </div>
         )}

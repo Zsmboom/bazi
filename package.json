@@ -9,9 +9,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "vercel-build": "chmod +x vercel-build.sh && ./vercel-build.sh"
   },
   "dependencies": {
+    "@auth/core": "^0.34.2",
     "@auth/mongodb-adapter": "^3.8.0",
     "@geoapify/geocoder-autocomplete": "^2.1.0",
     "@geoapify/react-geocoder-autocomplete": "^2.0.1",
