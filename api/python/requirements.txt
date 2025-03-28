@@ -1,1 +1,1 @@
-../../requirements.txt
+sxtwl==2.0.6
