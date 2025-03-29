@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGoogleAuth } from '../../../utils/googleAuthProxy';
 
-export default function GoogleAuthCallback() {
+// 分离出使用 useSearchParams 的组件
+function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { handleGoogleAuthCode, loading, error } = useGoogleAuth();
@@ -72,5 +73,32 @@ export default function GoogleAuthCallback() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 加载中的回退 UI
+function LoadingCallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ink-light dark:bg-ink-dark py-12 relative ink-wash-bg">
+      <div className="max-w-md w-full p-8 relative z-10 ink-card">
+        <div className="text-center mb-8">
+          <div className="bagua-symbol mx-auto"></div>
+          <h1 className="text-2xl font-bold text-earth dark:text-earth mt-4 ink-text">谷歌账号登录</h1>
+          <div className="mt-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-earth mx-auto"></div>
+            <p className="text-gray-600 dark:text-gray-300 mt-4">正在加载...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 主页面组件使用 Suspense 包裹
+export default function GoogleAuthCallback() {
+  return (
+    <Suspense fallback={<LoadingCallback />}>
+      <CallbackContent />
+    </Suspense>
   );
 } 
