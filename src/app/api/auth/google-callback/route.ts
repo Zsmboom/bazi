@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL('/login?error=no_code', request.url));
   }
   
-  // 创建包含code和state的URL，重定向到前端页面处理授权码
+  // Create URL containing code and state, redirect to frontend page to process the authorization code
   const redirectUrl = new URL('/auth/callback', request.nextUrl.origin);
   redirectUrl.searchParams.set('code', code);
   if (state) {

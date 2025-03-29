@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     const { code } = await request.json();
     
     if (!code) {
-      return NextResponse.json({ error: '缺少授权码' }, { status: 400 });
+      return NextResponse.json({ error: 'Authorization code is missing' }, { status: 400 });
     }
     
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -14,10 +14,10 @@ export async function POST(request: NextRequest) {
     const redirectUri = `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/google-callback`;
     
     if (!clientId || !clientSecret) {
-      return NextResponse.json({ error: '缺少OAuth客户端配置' }, { status: 500 });
+      return NextResponse.json({ error: 'OAuth client configuration is missing' }, { status: 500 });
     }
     
-    // 创建请求Google OAuth服务的参数
+    // Create parameters for Google OAuth service request
     const tokenParams = new URLSearchParams({
       code,
       client_id: clientId,
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       grant_type: 'authorization_code'
     });
     
-    // 构建请求选项
+    // Build request options
     const options = {
       hostname: 'oauth2.googleapis.com',
       port: 443,
@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
         'Content-Length': tokenParams.toString().length
       },
       timeout: 10000,
-      // 禁用SSL验证，在生产环境中应移除此选项
+      // Disable SSL verification, this should be removed in production
       rejectUnauthorized: false
     };
     
-    // 进行请求获取令牌
+    // Request to get token
     const tokenResponse = await new Promise<{access_token: string, id_token: string}>((resolve, reject) => {
       const req = https.request(options, (res) => {
         let data = '';
@@ -54,42 +54,42 @@ export async function POST(request: NextRequest) {
           try {
             const response = JSON.parse(data);
             if (res.statusCode !== 200) {
-              console.error('Google令牌请求失败:', response);
-              reject(new Error(response.error_description || response.error || '令牌请求失败'));
+              console.error('Google token request failed:', response);
+              reject(new Error(response.error_description || response.error || 'Token request failed'));
             } else {
               resolve(response);
             }
           } catch (error) {
-            console.error('解析Google响应失败:', error);
+            console.error('Failed to parse Google response:', error);
             reject(error);
           }
         });
       });
       
       req.on('error', (error) => {
-        console.error('令牌请求网络错误:', error);
+        console.error('Token request network error:', error);
         reject(error);
       });
       
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('令牌请求超时'));
+        reject(new Error('Token request timeout'));
       });
       
-      // 发送请求
+      // Send request
       req.write(tokenParams.toString());
       req.end();
     });
     
-    // 返回令牌
+    // Return token
     return NextResponse.json({
       accessToken: tokenResponse.access_token,
       idToken: tokenResponse.id_token
     });
   } catch (error) {
-    console.error('交换令牌失败:', error);
+    console.error('Failed to exchange token:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '交换令牌时发生未知错误' },
+      { error: error instanceof Error ? error.message : 'Unknown error occurred while exchanging token' },
       { status: 500 }
     );
   }

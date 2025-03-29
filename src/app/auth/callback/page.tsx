@@ -4,42 +4,42 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useGoogleAuth } from '../../../utils/googleAuthProxy';
 
-// 分离出使用 useSearchParams 的组件
+// Component that uses useSearchParams
 function CallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { handleGoogleAuthCode, loading, error } = useGoogleAuth();
-  const [processingStatus, setProcessingStatus] = useState('处理中...');
+  const [processingStatus, setProcessingStatus] = useState('Processing...');
 
   useEffect(() => {
     const processAuth = async () => {
       try {
-        // 获取授权码和状态
+        // Get authorization code and state
         const code = searchParams.get('code');
         const state = searchParams.get('state');
 
         if (!code) {
-          setProcessingStatus('未找到授权码，认证失败');
+          setProcessingStatus('Authorization code not found, authentication failed');
           setTimeout(() => router.push('/login?error=no_code'), 3000);
           return;
         }
 
-        // 处理授权码
-        setProcessingStatus('正在与谷歌服务器通信...');
+        // Process authorization code
+        setProcessingStatus('Communicating with Google servers...');
         const userData = await handleGoogleAuthCode(code, state || '');
 
         if (userData) {
-          setProcessingStatus('登录成功！正在跳转...');
-          // 登录成功，跳转到首页
+          setProcessingStatus('Login successful! Redirecting...');
+          // Login successful, redirect to homepage
           setTimeout(() => router.push('/'), 1500);
         } else {
-          setProcessingStatus('登录失败，请重试');
-          // 登录失败，跳转到登录页
+          setProcessingStatus('Login failed, please try again');
+          // Login failed, redirect to login page
           setTimeout(() => router.push('/login?error=auth_failed'), 3000);
         }
       } catch (err) {
-        console.error('处理OAuth回调错误:', err);
-        setProcessingStatus('处理授权时发生错误');
+        console.error('Error processing OAuth callback:', err);
+        setProcessingStatus('Error occurred during authorization');
         setTimeout(() => router.push('/login?error=callback_error'), 3000);
       }
     };
@@ -55,7 +55,7 @@ function CallbackContent() {
       <div className="max-w-md w-full p-8 relative z-10 ink-card">
         <div className="text-center mb-8">
           <div className="bagua-symbol mx-auto"></div>
-          <h1 className="text-2xl font-bold text-earth dark:text-earth mt-4 ink-text">谷歌账号登录</h1>
+          <h1 className="text-2xl font-bold text-earth dark:text-earth mt-4 ink-text">Google account login</h1>
           <div className="mt-6">
             {loading ? (
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-earth mx-auto"></div>
@@ -76,17 +76,17 @@ function CallbackContent() {
   );
 }
 
-// 加载中的回退 UI
+// Loading fallback UI
 function LoadingCallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-ink-light dark:bg-ink-dark py-12 relative ink-wash-bg">
       <div className="max-w-md w-full p-8 relative z-10 ink-card">
         <div className="text-center mb-8">
           <div className="bagua-symbol mx-auto"></div>
-          <h1 className="text-2xl font-bold text-earth dark:text-earth mt-4 ink-text">谷歌账号登录</h1>
+          <h1 className="text-2xl font-bold text-earth dark:text-earth mt-4 ink-text">Google account login</h1>
           <div className="mt-6">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-earth mx-auto"></div>
-            <p className="text-gray-600 dark:text-gray-300 mt-4">正在加载...</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-4">Loading...</p>
           </div>
         </div>
       </div>
@@ -94,7 +94,7 @@ function LoadingCallback() {
   );
 }
 
-// 主页面组件使用 Suspense 包裹
+// Main page component using Suspense
 export default function GoogleAuthCallback() {
   return (
     <Suspense fallback={<LoadingCallback />}>

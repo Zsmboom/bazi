@@ -3,15 +3,15 @@ import https from 'https';
 
 export async function GET(request: NextRequest) {
   try {
-    // 从请求头中获取授权令牌
+    // Get authorization token from request headers
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: '缺少授权令牌' }, { status: 401 });
+      return NextResponse.json({ error: 'Authorization token is missing' }, { status: 401 });
     }
     
     const accessToken = authHeader.substring(7);
     
-    // 构建请求选项
+    // Build request options
     const options = {
       hostname: 'www.googleapis.com',
       port: 443,
@@ -21,11 +21,11 @@ export async function GET(request: NextRequest) {
         'Authorization': `Bearer ${accessToken}`
       },
       timeout: 10000,
-      // 禁用SSL验证，在生产环境中应移除此选项
+      // Disable SSL verification, this should be removed in production
       rejectUnauthorized: false
     };
     
-    // 进行请求获取用户信息
+    // Request user information
     const userInfo = await new Promise<any>((resolve, reject) => {
       const req = https.request(options, (res) => {
         let data = '';
@@ -38,29 +38,29 @@ export async function GET(request: NextRequest) {
           try {
             const response = JSON.parse(data);
             if (res.statusCode !== 200) {
-              console.error('Google用户信息请求失败:', response);
-              reject(new Error(response.error_description || response.error || '用户信息请求失败'));
+              console.error('Google user info request failed:', response);
+              reject(new Error(response.error_description || response.error || 'User info request failed'));
             } else {
               resolve(response);
             }
           } catch (error) {
-            console.error('解析Google用户信息响应失败:', error);
+            console.error('Failed to parse Google user info response:', error);
             reject(error);
           }
         });
       });
       
       req.on('error', (error) => {
-        console.error('用户信息请求网络错误:', error);
+        console.error('User info request network error:', error);
         reject(error);
       });
       
       req.on('timeout', () => {
         req.destroy();
-        reject(new Error('用户信息请求超时'));
+        reject(new Error('User info request timeout'));
       });
       
-      // 发送请求
+      // Send request
       req.end();
     });
     

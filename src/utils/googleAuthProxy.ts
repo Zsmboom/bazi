@@ -1,6 +1,6 @@
 /**
- * Google认证代理工具
- * 用于在无法直接访问Google OAuth服务的环境中获取认证
+ * Google Authentication Proxy Utility
+ * Used for authentication with Google OAuth service
  */
 import { useState, useCallback } from 'react';
 
@@ -9,45 +9,45 @@ export const useGoogleAuth = () => {
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * 创建自定义Google授权URL
+   * Create custom Google authorization URL
    */
   const getGoogleAuthUrl = useCallback(() => {
     const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
     if (!clientId) {
-      setError('缺少Google客户端ID配置');
+      setError('Missing Google client ID configuration');
       return null;
     }
     
-    // 创建随机状态值以防止CSRF攻击
+    // Create random state value to prevent CSRF attacks
     const state = Math.random().toString(36).substring(2, 15);
-    // 保存到localStorage以便验证
+    // Save to localStorage for verification
     localStorage.setItem('googleAuthState', state);
     
-    // 创建重定向URI
+    // Create redirect URI
     const redirectUri = encodeURIComponent(`${window.location.origin}/api/auth/google-callback`);
     
-    // 构建授权URL
+    // Build authorization URL
     return `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20email%20profile&prompt=consent&access_type=offline&state=${state}`;
   }, []);
 
   /**
-   * 处理授权码并获取令牌
+   * Process authorization code and get token
    */
   const handleGoogleAuthCode = useCallback(async (code: string, state: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      // 验证状态值以防止CSRF攻击
+      // Validate state value to prevent CSRF attacks
       const savedState = localStorage.getItem('googleAuthState');
       if (savedState !== state) {
-        throw new Error('状态验证失败，可能存在安全风险');
+        throw new Error('State validation failed, potential security risk');
       }
       
-      // 清除状态
+      // Clear state
       localStorage.removeItem('googleAuthState');
       
-      // 向后端API发送授权码以获取令牌
+      // Send authorization code to backend API to get token
       const response = await fetch('/api/auth/exchange-code', {
         method: 'POST',
         headers: {
@@ -58,16 +58,16 @@ export const useGoogleAuth = () => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || '令牌交换失败');
+        throw new Error(errorData.error || 'Token exchange failed');
       }
       
       const data = await response.json();
       
-      // 存储令牌
+      // Store tokens
       localStorage.setItem('googleAccessToken', data.accessToken);
       localStorage.setItem('googleIdToken', data.idToken);
       
-      // 获取用户信息
+      // Get user information
       const userResponse = await fetch('/api/auth/user-info', {
         headers: {
           'Authorization': `Bearer ${data.accessToken}`,
@@ -75,18 +75,18 @@ export const useGoogleAuth = () => {
       });
       
       if (!userResponse.ok) {
-        throw new Error('获取用户信息失败');
+        throw new Error('Failed to get user information');
       }
       
       const userData = await userResponse.json();
       
-      // 存储用户信息
+      // Store user information
       localStorage.setItem('googleUser', JSON.stringify(userData));
       
-      // 返回用户数据
+      // Return user data
       return userData;
     } catch (err) {
-      setError(err instanceof Error ? err.message : '认证过程中发生错误');
+      setError(err instanceof Error ? err.message : 'Error during authentication process');
       return null;
     } finally {
       setLoading(false);
@@ -94,7 +94,7 @@ export const useGoogleAuth = () => {
   }, []);
 
   /**
-   * 检查用户是否已登录
+   * Check if user is logged in
    */
   const checkLoggedIn = useCallback(() => {
     const token = localStorage.getItem('googleAccessToken');
@@ -103,7 +103,7 @@ export const useGoogleAuth = () => {
   }, []);
 
   /**
-   * 登出
+   * Logout
    */
   const logout = useCallback(() => {
     localStorage.removeItem('googleAccessToken');
