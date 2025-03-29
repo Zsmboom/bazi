@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getAllMockUsers, handleMockLogin } from '../../utils/mockAuthService';
 import Link from 'next/link';
 
-export default function MockAuthPage() {
+// 使用 useSearchParams 的组件
+function MockAuthContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -92,5 +93,33 @@ export default function MockAuthPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// 加载中回退UI
+function LoadingMockAuth() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-ink-light dark:bg-ink-dark py-12 relative ink-wash-bg">
+      <div className="ink-splash ink-splash-1"></div>
+      <div className="ink-splash ink-splash-2"></div>
+      <div className="ink-splash ink-splash-3"></div>
+      <div className="max-w-md w-full p-8 relative z-10 ink-card">
+        <div className="text-center mb-8">
+          <div className="bagua-symbol mx-auto"></div>
+          <h1 className="text-3xl font-bold text-earth dark:text-earth mt-4 ink-text">模拟谷歌登录</h1>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-earth mx-auto mt-6"></div>
+          <p className="mt-4 text-earth dark:text-earth">正在加载模拟账号...</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 主页面组件使用 Suspense 包裹
+export default function MockAuthPage() {
+  return (
+    <Suspense fallback={<LoadingMockAuth />}>
+      <MockAuthContent />
+    </Suspense>
   );
 } 
