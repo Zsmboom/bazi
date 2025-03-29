@@ -1,12 +1,12 @@
-import { NextAuthOptions } from "next-auth";
-import { Session } from "next-auth";
-import { JWT } from "next-auth/jwt";
+import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "../../../../lib/mongodb";
 
 // Disable TLS/SSL verification for network requests to solve proxy issues
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
   // Enable MongoDB adapter to store user information in database
   adapter: MongoDBAdapter(clientPromise),
   session: {
-    strategy: "jwt" as const,
+    strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
@@ -36,16 +36,16 @@ export const authOptions: NextAuthOptions = {
     error: "/login",
   },
   callbacks: {
-    async session({ session, token }: { session: Session; token: JWT }) {
+    async session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
       }
       return session;
     },
     // Save additional user information to database if needed
-    async signIn({ user, account, profile }: any) {
+    async signIn({ user, account, profile }) {
       return true;
     }
   },
-  debug: true, // Enable debug mode to get more error information
+  debug: process.env.NODE_ENV !== 'production',
 }; 
